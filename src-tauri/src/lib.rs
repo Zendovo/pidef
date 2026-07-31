@@ -22,11 +22,7 @@ fn get_operation_options(app: AppHandle) -> Vec<OperationOptions> {
             &["compression TODO"],
             "Compression is a planned in-house feature and is intentionally disabled for now",
         ),
-        unavailable_option(
-            ToolId::PdfToJpg,
-            &["PDFium"],
-            "PDFium is the planned bundled renderer; PDF-to-JPG is disabled until the Rust integration replaces the old Poppler path",
-        ),
+        option(ToolId::PdfToJpg, &["PDFium"], deps.has_pdf_renderer()),
         option(ToolId::JpgToPdf, &[], true),
         option(ToolId::PptToPdf, &["LibreOffice"], deps.has_libreoffice()),
         option(ToolId::WordToPdf, &["LibreOffice"], deps.has_libreoffice()),

@@ -4,8 +4,12 @@ use crate::{
     parse_page_ranges, CompressionProfile, DependencySet, JobRequest, JobResult, Operation,
     OrganizePage, PdfToolError, ProtectPermissions,
 };
+use image::codecs::jpeg::JpegEncoder;
+use pdfium_render::prelude::*;
 use std::{
     env, fs,
+    fs::File,
+    io::BufWriter,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -306,24 +310,57 @@ fn run_pdf_to_jpg(
     require(&deps.pdf_renderer)?;
     let output_dir = output_path(request)?;
     fs::create_dir_all(output_dir)?;
-    let prefix = output_dir.join("page");
 
-    let mut command = hidden_command(&deps.pdf_renderer.command);
-    command.arg("-jpeg").arg("-r").arg(dpi.to_string());
-    if let Some(first_page) = first_page {
-        command.arg("-f").arg(first_page.to_string());
-    }
-    if let Some(last_page) = last_page {
-        command.arg("-l").arg(last_page.to_string());
-    }
-    command
-        .arg("-jpegopt")
-        .arg(format!("quality={quality},progressive=y,optimize=y"))
-        .arg(input)
-        .arg(prefix);
-    run_command(command)?;
+    let pdfium_path = deps
+        .pdf_renderer
+        .path
+        .as_ref()
+        .ok_or_else(|| PdfToolError::MissingDependency("PDFium".to_string()))?;
+    let pdfium = Pdfium::new(
+        Pdfium::bind_to_library(pdfium_path)
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?,
+    );
+    let document = pdfium
+        .load_pdf_from_file(input, None)
+        .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?;
 
-    let outputs = collect_outputs(output_dir, "jpg")?;
+    let first_index = first_page.unwrap_or(1).saturating_sub(1) as usize;
+    let last_index = last_page
+        .map(|page| page.saturating_sub(1) as usize)
+        .unwrap_or_else(|| document.pages().len().saturating_sub(1) as usize);
+    if first_index > last_index || first_index >= document.pages().len() as usize {
+        return Err(PdfToolError::InvalidRequest(
+            "invalid PDF page range".to_string(),
+        ));
+    }
+
+    let quality = quality.clamp(1, 100);
+    let mut outputs = Vec::new();
+    for (index, page) in document.pages().iter().enumerate() {
+        if index < first_index || index > last_index {
+            continue;
+        }
+
+        let target_width = points_to_pixels(page.width().value, dpi);
+        let target_height = points_to_pixels(page.height().value, dpi);
+        let render_config = PdfRenderConfig::new()
+            .set_target_width(target_width)
+            .set_maximum_height(target_height);
+        let image = page
+            .render_with_config(&render_config)
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?
+            .as_image()
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?
+            .into_rgb8();
+
+        let output = output_dir.join(format!("page-{:04}.jpg", index + 1));
+        let writer = BufWriter::new(File::create(&output)?);
+        JpegEncoder::new_with_quality(writer, quality)
+            .encode_image(&image)
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?;
+        outputs.push(output);
+    }
+
     result_for(request, &outputs, &[input.to_path_buf()])
 }
 
@@ -475,20 +512,8 @@ fn hidden_command(program: &str) -> Command {
     }
 }
 
-fn collect_outputs(dir: &Path, extension: &str) -> Result<Vec<PathBuf>, PdfToolError> {
-    let mut outputs = Vec::new();
-    for entry in fs::read_dir(dir)? {
-        let path = entry?.path();
-        if path
-            .extension()
-            .and_then(|value| value.to_str())
-            .is_some_and(|value| value.eq_ignore_ascii_case(extension))
-        {
-            outputs.push(path);
-        }
-    }
-    outputs.sort();
-    Ok(outputs)
+fn points_to_pixels(points: f32, dpi: u16) -> i32 {
+    ((points * dpi as f32 / 72.0).round() as i32).max(1)
 }
 
 fn result_for(

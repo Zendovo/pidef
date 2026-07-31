@@ -25,7 +25,7 @@ resources/bin/
     LICENSES/
 ```
 
-`qpdf` is used for structural PDF operations. `PDFium` is the planned bundled rendering engine for previews and PDF-to-image export.
+`qpdf` is used for structural PDF operations. `PDFium` is the bundled rendering engine for PDF-to-image export and future previews.
 
 Do not commit downloaded engine binaries to the repository. Release builds should populate this directory before running `npm run tauri build`.
 

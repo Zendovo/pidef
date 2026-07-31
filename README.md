@@ -52,11 +52,10 @@ npm run tauri build
 
 That creates the platform's default bundles under `target/release/bundle`. On this machine, the app bundle build succeeds; the optional DMG wrapper may need a normal non-sandboxed macOS packaging environment.
 
-Core PDF operations expect local engines on `PATH`:
+Core PDF operations use bundled engines:
 
-- `qpdf` for merge, split, organize, unlock, and protect.
-- `gs` or `ghostscript` for compression.
-- `pdftoppm` for PDF to JPG rendering in this scaffold.
+- Bundled `qpdf` for merge, split, organize, unlock, and protect.
+- Bundled PDFium for PDF to JPG rendering.
 - `soffice` or `libreoffice` for Word/PPT to PDF.
 
 LibreOffice is optional. Word/PPT conversion is disabled in the UI when it is not detected.
@@ -64,7 +63,7 @@ LibreOffice is optional. Word/PPT conversion is disabled in the UI when it is no
 On macOS with Homebrew:
 
 ```sh
-brew install qpdf ghostscript poppler libreoffice
+brew install libreoffice
 ```
 
-The desktop app checks normal shell `PATH` plus common macOS locations such as `/opt/homebrew/bin`, `/usr/local/bin`, and `/Applications/LibreOffice.app/Contents/MacOS`.
+The desktop app checks bundled resources first, then normal shell `PATH` plus common macOS locations such as `/opt/homebrew/bin`, `/usr/local/bin`, and `/Applications/LibreOffice.app/Contents/MacOS`.

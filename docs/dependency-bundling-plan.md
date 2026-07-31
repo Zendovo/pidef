@@ -20,8 +20,8 @@ Ship Local PDF Tool as a consumer desktop app that works out of the box for core
 | Organize PDF | qpdf | Yes | Page selection/reorder remains command backed initially. |
 | Unlock PDF | qpdf | Yes | Only with user-provided password. |
 | Protect PDF | qpdf | Yes | Use qpdf encryption flags. |
-| PDF preview/thumbnails | PDFium | Yes | Replace Poppler path. |
-| PDF to JPG | PDFium | Yes | Replace `pdftoppm`. |
+| PDF preview/thumbnails | PDFium | Yes | Bundled renderer. |
+| PDF to JPG | PDFium | Yes | Implemented through Rust PDFium binding. |
 | JPG to PDF | In-house Rust | Yes | Already implemented without external engine. |
 | Word to PDF | LibreOffice | No | Optional engine/add-on. |
 | PPT to PDF | LibreOffice | No | Optional engine/add-on. |
@@ -51,7 +51,7 @@ Estimated compressed impact:
 
 1. Add a `resources/bin/<platform>/<arch>/` layout for bundled engines. Started with `src-tauri/resources/bin`.
 2. Update dependency detection to prefer Tauri resource paths before system paths. Done in the Tauri command layer and core dependency detector.
-3. Replace the current `pdftoppm` PDF-to-JPG implementation with PDFium.
+3. Replace the current `pdftoppm` PDF-to-JPG implementation with PDFium. Done for PDF-to-JPG export.
 4. Add a build-time verification script that fails packaging if required bundled engines are missing.
 5. Add a runtime diagnostics panel showing whether each engine is bundled, detected externally, optional, or unavailable.
 6. Keep LibreOffice conversion disabled by default unless a local LibreOffice install or future managed add-on is detected.

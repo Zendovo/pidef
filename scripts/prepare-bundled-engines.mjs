@@ -11,7 +11,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const binRoot = join(root, "src-tauri", "resources", "bin");
 const cacheRoot = join(root, ".engine-cache");
 
-const pdfiumVersion = "chromium/7869";
+const pdfiumVersion = "chromium/7881";
 
 const platform = process.platform;
 const arch = process.arch;
@@ -34,7 +34,7 @@ async function preparePdfium(targetKeyValue) {
     return;
   }
 
-  const archive = join(cacheRoot, asset);
+  const archive = join(cacheRoot, `${pdfiumVersion.replace("/", "-")}-${asset}`);
   await mkdir(cacheRoot, { recursive: true });
 
   if (!(await exists(archive))) {
@@ -45,7 +45,7 @@ async function preparePdfium(targetKeyValue) {
     await download(url, archive);
   }
 
-  const extractDir = join(cacheRoot, asset.replace(/\.tgz$/, ""));
+  const extractDir = join(cacheRoot, `${pdfiumVersion.replace("/", "-")}-${asset.replace(/\.tgz$/, "")}`);
   await rm(extractDir, { recursive: true, force: true });
   await mkdir(extractDir, { recursive: true });
   await run("tar", ["-xzf", archive, "-C", extractDir]);

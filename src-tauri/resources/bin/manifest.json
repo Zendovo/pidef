@@ -7,7 +7,7 @@
       "notes": "Upstream provides Windows and Linux release binaries. macOS release builds compile qpdf from source with native crypto and copy the CLI into resources/bin/<target>."
     },
     "pdfium": {
-      "version": "chromium/7869",
+      "version": "chromium/7881",
       "license": "BSD-3-Clause",
       "source": "https://github.com/bblanchon/pdfium-binaries",
       "notes": "Use non-V8 PDFium builds unless JavaScript-in-PDF support becomes a product requirement."

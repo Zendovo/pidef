@@ -162,7 +162,7 @@ fn resolve_output_path(request: &JobRequest) -> Result<PathBuf, PdfToolError> {
     }
 
     let base = env::temp_dir()
-        .join("local-pdf-tool")
+        .join("pidef")
         .join(request.id.to_string());
     fs::create_dir_all(&base)?;
 

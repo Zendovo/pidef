@@ -32,9 +32,9 @@ export async function invokeCommand<T>(command: string, args?: Record<string, un
 
 function previewDependencies(): DependencySet {
   return {
-    qpdf: previewDependency("qpdf", "/Applications/Local PDF Tool.app/Contents/Resources/bin/qpdf"),
+    qpdf: previewDependency("qpdf", "/Applications/Pidef.app/Contents/Resources/bin/qpdf"),
     ghostscript: previewDependency("Ghostscript", "/usr/local/bin/gs", "system"),
-    pdfRenderer: previewDependency("PDFium", "/Applications/Local PDF Tool.app/Contents/Resources/bin/pdfium"),
+    pdfRenderer: previewDependency("PDFium", "/Applications/Pidef.app/Contents/Resources/bin/pdfium"),
     libreoffice: previewDependency("LibreOffice", "/Applications/LibreOffice.app"),
   };
 }

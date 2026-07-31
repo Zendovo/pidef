@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ship Local PDF Tool as a consumer desktop app that works out of the box for core PDF workflows. Users should not need Homebrew, package managers, shell setup, or command-line knowledge.
+Ship Pidef as a consumer desktop app that works out of the box for core PDF workflows. Users should not need Homebrew, package managers, shell setup, or command-line knowledge.
 
 ## Distribution Strategy
 

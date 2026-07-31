@@ -13,8 +13,8 @@ public func installMacNativeShell(_ rawWindow: UnsafeMutableRawPointer?) {
 }
 
 private enum MacNativeShellInstaller {
-  private static let sidebarIdentifier = NSUserInterfaceItemIdentifier("LocalPdfToolMacNativeSidebar")
-  private static let toggleIdentifier = NSUserInterfaceItemIdentifier("LocalPdfToolMacNativeSidebarToggle")
+  private static let sidebarIdentifier = NSUserInterfaceItemIdentifier("PidefMacNativeSidebar")
+  private static let toggleIdentifier = NSUserInterfaceItemIdentifier("PidefMacNativeSidebarToggle")
   private static let sidebarWidth: CGFloat = 260
   private static let collapsedToggleLeading: CGFloat = 28
   private static let collapsedToggleTop: CGFloat = 54
@@ -246,7 +246,7 @@ private struct MacNativeSidebar: View {
   }
 
   private var brand: some View {
-    Text("Local PDF Tool")
+    Text("Pidef")
       .font(MacSidebarFont.brand)
       .foregroundStyle(Color.primary.opacity(0.76))
   }

@@ -280,7 +280,7 @@ export function App() {
       <section className="sidebar">
         <div className="brand" data-tauri-drag-region>
           <div>
-            <h1>Local PDF Tool</h1>
+            <h1>Pidef</h1>
           </div>
         </div>
 

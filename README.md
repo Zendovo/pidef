@@ -1,4 +1,4 @@
-# Local PDF Tool
+# Pidef
 
 A local-first desktop PDF utility built with Tauri, Vite, React, TypeScript, and Rust.
 
@@ -34,15 +34,15 @@ Build a standalone desktop app for your current platform:
 npm run tauri build -- --bundles app
 ```
 
-On macOS, the app is written to `target/release/bundle/macos/Local PDF Tool.app`. A raw executable is also available at `target/release/local-pdf-tool`.
+On macOS, the app is written to `target/release/bundle/macos/Pidef.app`. A raw executable is also available at `target/release/pidef`.
 
 Open the `.app` bundle for normal desktop behavior:
 
 ```sh
-open "target/release/bundle/macos/Local PDF Tool.app"
+open "target/release/bundle/macos/Pidef.app"
 ```
 
-Running `target/release/local-pdf-tool` directly launches it as a command-line executable, which can keep a terminal window attached.
+Running `target/release/pidef` directly launches it as a command-line executable, which can keep a terminal window attached.
 
 To build platform installers/packages, run:
 

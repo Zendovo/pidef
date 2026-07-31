@@ -159,5 +159,5 @@ pub fn run() {
             set_appearance
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Local PDF Tool");
+        .expect("error while running Pidef");
 }

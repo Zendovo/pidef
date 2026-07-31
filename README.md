@@ -36,6 +36,14 @@ npm run tauri build -- --bundles app
 
 On macOS, the app is written to `target/release/bundle/macos/Local PDF Tool.app`. A raw executable is also available at `target/release/local-pdf-tool`.
 
+Open the `.app` bundle for normal desktop behavior:
+
+```sh
+open "target/release/bundle/macos/Local PDF Tool.app"
+```
+
+Running `target/release/local-pdf-tool` directly launches it as a command-line executable, which can keep a terminal window attached.
+
 To build platform installers/packages, run:
 
 ```sh

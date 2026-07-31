@@ -1,0 +1,22 @@
+{
+  "engines": {
+    "qpdf": {
+      "version": "12.3.2",
+      "license": "Apache-2.0",
+      "source": "https://github.com/qpdf/qpdf",
+      "notes": "Upstream provides Windows and Linux release binaries. macOS release builds compile qpdf from source with native crypto and copy the CLI into resources/bin/<target>."
+    },
+    "pdfium": {
+      "version": "chromium/7869",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/bblanchon/pdfium-binaries",
+      "notes": "Use non-V8 PDFium builds unless JavaScript-in-PDF support becomes a product requirement."
+    },
+    "libreoffice": {
+      "bundledByDefault": false,
+      "license": "MPL-2.0 / LGPL family",
+      "source": "https://www.libreoffice.org/",
+      "notes": "Optional Office conversion engine. Do not include in the base app bundle."
+    }
+  }
+}

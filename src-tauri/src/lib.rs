@@ -1,26 +1,32 @@
 use pdf_tool_core::{
-    detect_dependencies, run_job, DependencySet, JobRequest, JobResult, OperationOptions, ToolId,
+    detect_dependencies_with_roots, run_job_with_dependency_roots, DependencySet, JobRequest,
+    JobResult, OperationOptions, ToolId,
 };
 use std::{fs, path::PathBuf};
+use tauri::{AppHandle, Manager};
 
 #[tauri::command]
-fn get_dependencies() -> DependencySet {
-    detect_dependencies()
+fn get_dependencies(app: AppHandle) -> DependencySet {
+    detect_dependencies_with_roots(&bundled_engine_roots(&app))
 }
 
 #[tauri::command]
-fn get_operation_options() -> Vec<OperationOptions> {
-    let deps = detect_dependencies();
+fn get_operation_options(app: AppHandle) -> Vec<OperationOptions> {
+    let deps = detect_dependencies_with_roots(&bundled_engine_roots(&app));
     vec![
         option(ToolId::MergePdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::SplitPdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::OrganizePdf, &["qpdf"], deps.has_qpdf()),
-        option(
+        unavailable_option(
             ToolId::CompressPdf,
-            &["Ghostscript"],
-            deps.has_ghostscript(),
+            &["compression TODO"],
+            "Compression is a planned in-house feature and is intentionally disabled for now",
         ),
-        option(ToolId::PdfToJpg, &["pdftoppm"], deps.has_pdf_renderer()),
+        unavailable_option(
+            ToolId::PdfToJpg,
+            &["PDFium"],
+            "PDFium is the planned bundled renderer; PDF-to-JPG is disabled until the Rust integration replaces the old Poppler path",
+        ),
         option(ToolId::JpgToPdf, &[], true),
         option(ToolId::PptToPdf, &["LibreOffice"], deps.has_libreoffice()),
         option(ToolId::WordToPdf, &["LibreOffice"], deps.has_libreoffice()),
@@ -30,8 +36,9 @@ fn get_operation_options() -> Vec<OperationOptions> {
 }
 
 #[tauri::command]
-fn execute_job(request: JobRequest) -> Result<JobResult, String> {
-    run_job(request).map_err(|error| error.to_string())
+fn execute_job(app: AppHandle, request: JobRequest) -> Result<JobResult, String> {
+    run_job_with_dependency_roots(request, &bundled_engine_roots(&app))
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -69,6 +76,60 @@ fn option(tool: ToolId, requires: &[&str], available: bool) -> OperationOptions 
         requires: requires.iter().map(|value| (*value).to_string()).collect(),
         unavailable_reason: (!available)
             .then(|| format!("Missing required dependency: {}", requires.join(", "))),
+    }
+}
+
+fn unavailable_option(tool: ToolId, requires: &[&str], reason: &str) -> OperationOptions {
+    OperationOptions {
+        tool,
+        requires: requires.iter().map(|value| (*value).to_string()).collect(),
+        unavailable_reason: Some(reason.to_string()),
+    }
+}
+
+fn bundled_engine_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        roots.push(
+            resource_dir
+                .join("resources")
+                .join("bin")
+                .join(platform_key()),
+        );
+        roots.push(resource_dir.join("resources").join("bin"));
+        roots.push(resource_dir.join("bin").join(platform_key()));
+        roots.push(resource_dir.join("bin"));
+    }
+
+    roots
+}
+
+fn platform_key() -> &'static str {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        "macos-aarch64"
+    }
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    {
+        "macos-x86_64"
+    }
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    {
+        "windows-x86_64"
+    }
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        "linux-x86_64"
+    }
+    #[cfg(not(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+        all(target_os = "linux", target_arch = "x86_64")
+    )))]
+    {
+        "unknown"
     }
 }
 

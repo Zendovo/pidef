@@ -1,7 +1,8 @@
 use crate::{
-    dependencies::detect_dependencies, page_ranges::qpdf_range, parse_page_ranges,
-    CompressionProfile, DependencySet, JobRequest, JobResult, Operation, OrganizePage,
-    PdfToolError, ProtectPermissions,
+    dependencies::{detect_dependencies, detect_dependencies_with_roots},
+    page_ranges::qpdf_range,
+    parse_page_ranges, CompressionProfile, DependencySet, JobRequest, JobResult, Operation,
+    OrganizePage, PdfToolError, ProtectPermissions,
 };
 use std::{
     env, fs,
@@ -9,9 +10,26 @@ use std::{
     process::Command,
 };
 
-pub fn run_job(mut request: JobRequest) -> Result<JobResult, PdfToolError> {
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub fn run_job(request: JobRequest) -> Result<JobResult, PdfToolError> {
+    run_job_with_dependency_roots(request, &[])
+}
+
+pub fn run_job_with_dependency_roots(
+    mut request: JobRequest,
+    dependency_roots: &[PathBuf],
+) -> Result<JobResult, PdfToolError> {
     request.output = Some(resolve_output_path(&request)?);
-    let dependencies = detect_dependencies();
+    let dependencies = if dependency_roots.is_empty() {
+        detect_dependencies()
+    } else {
+        detect_dependencies_with_roots(dependency_roots)
+    };
     validate_request(&request)?;
 
     match &request.operation {
@@ -174,7 +192,7 @@ fn run_merge(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let mut command = Command::new(deps.qpdf.command.clone());
+    let mut command = hidden_command(&deps.qpdf.command);
     command.arg("--empty").arg("--pages");
     for input in inputs {
         command.arg(input).arg("1-z");
@@ -207,7 +225,7 @@ fn run_split(
             return Err(PdfToolError::OutputConflict(output.display().to_string()));
         }
 
-        let mut command = Command::new(deps.qpdf.command.clone());
+        let mut command = hidden_command(&deps.qpdf.command);
         command
             .arg("--empty")
             .arg("--pages")
@@ -230,7 +248,7 @@ fn run_organize(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let mut command = Command::new(deps.qpdf.command.clone());
+    let mut command = hidden_command(&deps.qpdf.command);
     command.arg("--empty").arg("--pages");
     for page in pages {
         command
@@ -262,7 +280,7 @@ fn run_compress(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.ghostscript)?;
     let output = output_path(request)?;
-    let mut command = Command::new(deps.ghostscript.command.clone());
+    let mut command = hidden_command(&deps.ghostscript.command);
     command
         .arg("-sDEVICE=pdfwrite")
         .arg("-dCompatibilityLevel=1.4")
@@ -290,7 +308,7 @@ fn run_pdf_to_jpg(
     fs::create_dir_all(output_dir)?;
     let prefix = output_dir.join("page");
 
-    let mut command = Command::new(deps.pdf_renderer.command.clone());
+    let mut command = hidden_command(&deps.pdf_renderer.command);
     command.arg("-jpeg").arg("-r").arg(dpi.to_string());
     if let Some(first_page) = first_page {
         command.arg("-f").arg(first_page.to_string());
@@ -338,7 +356,7 @@ fn run_office_to_pdf(
         .ok_or_else(|| PdfToolError::InvalidRequest("output path has no parent".to_string()))?;
     fs::create_dir_all(output_dir)?;
 
-    let mut command = Command::new(deps.libreoffice.command.clone());
+    let mut command = hidden_command(&deps.libreoffice.command);
     command
         .arg("--headless")
         .arg("--convert-to")
@@ -371,7 +389,7 @@ fn run_unlock(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let mut command = Command::new(deps.qpdf.command.clone());
+    let mut command = hidden_command(&deps.qpdf.command);
     command
         .arg(format!("--password={password}"))
         .arg("--decrypt")
@@ -396,7 +414,7 @@ fn run_protect(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let mut command = Command::new(deps.qpdf.command.clone());
+    let mut command = hidden_command(&deps.qpdf.command);
     command
         .arg("--encrypt")
         .arg(user_password)
@@ -441,6 +459,20 @@ fn run_command(mut command: Command) -> Result<(), PdfToolError> {
     };
 
     Err(PdfToolError::ConversionFailed(details))
+}
+
+fn hidden_command(program: &str) -> Command {
+    #[cfg(windows)]
+    {
+        let mut command = Command::new(program);
+        command.creation_flags(CREATE_NO_WINDOW);
+        command
+    }
+
+    #[cfg(not(windows))]
+    {
+        Command::new(program)
+    }
 }
 
 fn collect_outputs(dir: &Path, extension: &str) -> Result<Vec<PathBuf>, PdfToolError> {

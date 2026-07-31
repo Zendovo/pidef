@@ -7,6 +7,7 @@ import {
   Download,
   FilePlus2,
   FolderOpen,
+  Info,
   Loader2,
   Play,
   RefreshCw,
@@ -209,11 +210,9 @@ export function App() {
     markSaved(job.id, folder);
   }
 
-  function markSaved(jobId: string, destination: string) {
+  function markSaved(jobId: string, _destination: string) {
     setJobs((current) =>
-      current.map((job) =>
-        job.id === jobId ? { ...job, message: `Saved to ${destination}` } : job,
-      ),
+      current.map((job) => (job.id === jobId ? { ...job, message: "Saved" } : job)),
     );
   }
 
@@ -273,7 +272,7 @@ export function App() {
             {disabledReason ? (
               <div className="notice warning">
                 <CircleAlert size={18} />
-                <span>{disabledReason}. Install the required local engine, then refresh runtime.</span>
+                <span>{availabilityMessage(disabledReason)}</span>
               </div>
             ) : null}
 
@@ -454,24 +453,10 @@ export function App() {
 
           <aside className="status-panel">
             <section>
-              <h3>Runtime</h3>
-              <div className="dependency-list">
-                {dependencyList.map((dependency) => (
-                  <div className="dependency" key={dependency.name}>
-                    {dependency.available ? (
-                      <CheckCircle2 size={17} className="ok" />
-                    ) : (
-                      <CircleAlert size={17} className="missing" />
-                    )}
-                    <span>{dependency.name}</span>
-                    <small>{dependency.available ? dependency.command : "not found"}</small>
-                  </div>
-                ))}
+              <div className="panel-heading">
+                <h3>Jobs</h3>
+                <RuntimeInfo dependencies={dependencyList} />
               </div>
-            </section>
-
-            <section>
-              <h3>Jobs</h3>
               <div className="jobs">
                 {jobs.length === 0 ? <p className="empty">No jobs yet</p> : null}
                 {jobs.map((job) => (
@@ -483,11 +468,11 @@ export function App() {
                     {job.status === "running" ? <Loader2 className="spin" size={18} /> : null}
                     {job.result ? (
                       <>
-                        <ul>
-                          {job.result.outputs.map((output) => (
-                            <li key={output}>{output}</li>
-                          ))}
-                        </ul>
+                        <p className="job-output-summary">
+                          {job.result.outputs.length === 1
+                            ? "1 output file is ready"
+                            : `${job.result.outputs.length} output files are ready`}
+                        </p>
                         <button
                           className="save-button"
                           onClick={() => void saveJobOutput(job)}
@@ -546,6 +531,35 @@ function FileDropZone({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function RuntimeInfo({ dependencies }: { dependencies: DependencySet[keyof DependencySet][] }) {
+  const missingCount = dependencies.filter((dependency) => !dependency.available).length;
+  const bundledCount = dependencies.filter((dependency) => dependency.source === "bundled").length;
+
+  return (
+    <div className="runtime-info">
+      <button className="runtime-trigger" type="button" aria-label="Runtime details">
+        <Info size={17} />
+        <span>{missingCount > 0 ? `${missingCount} unavailable` : `${bundledCount} bundled`}</span>
+      </button>
+      <div className="runtime-popover" role="tooltip">
+        {dependencies.map((dependency) => (
+          <div className="dependency" key={dependency.name}>
+            {dependency.available ? (
+              <CheckCircle2 size={17} className="ok" />
+            ) : (
+              <CircleAlert size={17} className="missing" />
+            )}
+            <span>{dependency.name}</span>
+            <small>
+              {dependency.available ? `${dependency.source}: ${basename(dependency.command)}` : "not available"}
+            </small>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -631,6 +645,11 @@ function dialogFilters(tool: ToolId) {
   if (tool === "pptToPdf") return [{ name: "Presentations", extensions: ["ppt", "pptx", "odp"] }];
   if (tool === "wordToPdf") return [{ name: "Documents", extensions: ["doc", "docx", "odt"] }];
   return [{ name: "PDF", extensions: ["pdf"] }];
+}
+
+function availabilityMessage(reason: string) {
+  if (reason.toLowerCase().includes("planned")) return reason;
+  return `${reason}. Install the required local engine, then refresh runtime.`;
 }
 
 function outputFilters(tool: ToolId) {

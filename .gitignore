@@ -1,6 +1,11 @@
 /node_modules
 /dist
 /target
+/.engine-cache
+/src-tauri/resources/bin/*
+!/src-tauri/resources/bin/.gitkeep
+!/src-tauri/resources/bin/README.md
+!/src-tauri/resources/bin/manifest.json
 /.idea
 /.vscode
 *.log

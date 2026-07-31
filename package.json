@@ -7,6 +7,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "build:qpdf": "node scripts/build-qpdf-from-source.mjs",
+    "prepare:engines": "node scripts/prepare-bundled-engines.mjs",
+    "verify:engines": "node scripts/verify-bundled-engines.mjs",
     "tauri": "tauri",
     "test": "vitest run"
   },

@@ -6,6 +6,7 @@ export type DependencyInfo = {
   path: string | null;
   available: boolean;
   optional: boolean;
+  source: "bundled" | "system" | "unavailable";
 };
 
 export type DependencySet = {

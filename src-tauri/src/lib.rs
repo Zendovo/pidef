@@ -3,7 +3,9 @@ use pdf_tool_core::{
     JobResult, OperationOptions, ToolId,
 };
 use std::{fs, path::PathBuf};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Theme};
+
+mod macos_native_shell;
 
 #[tauri::command]
 fn get_dependencies(app: AppHandle) -> DependencySet {
@@ -49,6 +51,19 @@ fn save_output(source: PathBuf, destination: PathBuf) -> Result<(), String> {
             .map(|_| ())
             .map_err(|error| error.to_string())
     }
+}
+
+#[tauri::command]
+fn set_appearance(app: AppHandle, appearance: String) -> Result<(), String> {
+    let theme = match appearance.as_str() {
+        "light" => Some(Theme::Light),
+        "dark" => Some(Theme::Dark),
+        "system" => None,
+        _ => return Err(format!("Unknown appearance mode: {appearance}")),
+    };
+
+    app.set_theme(theme);
+    Ok(())
 }
 
 fn copy_dir_all(source: &PathBuf, destination: &PathBuf) -> std::io::Result<()> {
@@ -132,11 +147,16 @@ fn platform_key() -> &'static str {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            macos_native_shell::install(app)?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_dependencies,
             get_operation_options,
             execute_job,
-            save_output
+            save_output,
+            set_appearance
         ])
         .run(tauri::generate_context!())
         .expect("error while running Local PDF Tool");

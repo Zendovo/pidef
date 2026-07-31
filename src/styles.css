@@ -1,8 +1,12 @@
 :root {
-  color: #172033;
-  background: #f5f7fb;
+  color: #1f2933;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.96), transparent 30%),
+    radial-gradient(circle at 84% 18%, rgba(134, 198, 255, 0.26), transparent 34%),
+    linear-gradient(135deg, #f7fafc 0%, #edf3f9 48%, #f8f9fb 100%);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,34 +29,76 @@ textarea {
   font: inherit;
 }
 
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .app-shell {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.16)),
+    radial-gradient(circle at 70% 6%, rgba(255, 255, 255, 0.72), transparent 28%);
   display: grid;
-  grid-template-columns: 292px minmax(0, 1fr);
+  grid-template-columns: 284px minmax(0, 1fr);
   min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.window-drag-strip {
+  height: 52px;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1;
 }
 
 .sidebar {
-  background: #111827;
-  color: #f9fafb;
-  padding: 24px 18px;
+  background:
+    linear-gradient(180deg, rgba(246, 249, 253, 0.78), rgba(234, 240, 247, 0.6)),
+    rgba(246, 249, 253, 0.82);
+  border-right: 1px solid rgba(116, 129, 145, 0.22);
+  box-shadow: inset -1px 0 rgba(255, 255, 255, 0.64);
+  color: #263242;
+  padding: 58px 14px 18px;
+  z-index: 2;
+}
+
+@supports ((backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px))) {
+  .sidebar,
+  .tool-panel,
+  .status-panel,
+  .runtime-popover {
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+  }
 }
 
 .brand {
   align-items: center;
   display: flex;
-  gap: 12px;
-  margin-bottom: 26px;
+  gap: 11px;
+  margin-bottom: 24px;
+  min-height: 42px;
+  padding: 0 8px;
 }
 
 .brand-mark {
   align-items: center;
-  background: #f9fafb;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.48)),
+    rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.76);
   border-radius: 8px;
-  color: #111827;
+  box-shadow:
+    0 12px 24px rgba(45, 66, 92, 0.12),
+    inset 0 1px rgba(255, 255, 255, 0.9);
+  color: #1e3a5f;
   display: grid;
-  height: 42px;
+  height: 40px;
   justify-items: center;
-  width: 42px;
+  width: 40px;
 }
 
 .brand h1,
@@ -64,19 +110,24 @@ textarea {
 }
 
 .brand h1 {
-  font-size: 18px;
+  color: #1e2a37;
+  font-size: 17px;
   letter-spacing: 0;
 }
 
 .brand p {
-  color: #aeb7c7;
-  font-size: 13px;
+  color: #667789;
+  font-size: 12px;
   margin-top: 2px;
 }
 
 .tool-list {
   display: grid;
-  gap: 6px;
+  gap: 5px;
+}
+
+.settings-button {
+  margin-top: 10px;
 }
 
 .tool-button {
@@ -87,24 +138,34 @@ textarea {
   color: inherit;
   cursor: pointer;
   display: grid;
-  gap: 11px;
+  gap: 10px;
   grid-template-columns: 32px 1fr;
-  padding: 10px;
+  min-height: 52px;
+  padding: 8px;
   text-align: left;
 }
 
 .tool-button:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.48);
+  border-color: rgba(255, 255, 255, 0.58);
 }
 
 .tool-button.selected {
-  background: #f9fafb;
-  color: #111827;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.6)),
+    rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 10px 24px rgba(42, 64, 93, 0.13),
+    inset 0 1px rgba(255, 255, 255, 0.98),
+    inset 0 -1px rgba(77, 98, 126, 0.08);
+  color: #172033;
 }
 
 .tool-icon {
   align-items: center;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.64);
   border-radius: 8px;
   display: grid;
   height: 32px;
@@ -114,12 +175,12 @@ textarea {
 
 .tool-button strong {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.25;
 }
 
 .tool-button small {
-  color: #8b95a7;
+  color: #6d7d8d;
   display: block;
   font-size: 12px;
   line-height: 1.35;
@@ -128,7 +189,29 @@ textarea {
 
 .workspace {
   min-width: 0;
-  padding: 24px;
+  padding: 48px 24px 24px;
+  z-index: 2;
+}
+
+body[data-native-shell="macos"] .sidebar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-native-shell="macos"],
+body[data-native-shell="macos"] .app-shell {
+  background: transparent;
+}
+
+body[data-native-shell="macos"] .workspace {
+  background: #f6f8fb;
+  box-shadow: -1px 0 rgba(88, 103, 122, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  body[data-native-shell="macos"] .workspace {
+    background: #18181b;
+  }
 }
 
 .topbar {
@@ -136,22 +219,24 @@ textarea {
   display: flex;
   justify-content: space-between;
   margin-bottom: 18px;
+  transition: padding-left 180ms ease;
 }
 
 .topbar h2 {
-  font-size: 26px;
+  color: #16202c;
+  font-size: 25px;
   letter-spacing: 0;
 }
 
 .topbar p {
-  color: #667085;
+  color: #637285;
   margin-top: 3px;
 }
 
 .icon-button {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #d8dee9;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(158, 173, 191, 0.34);
   border-radius: 8px;
   color: #293548;
   cursor: pointer;
@@ -159,6 +244,13 @@ textarea {
   height: 38px;
   justify-items: center;
   width: 38px;
+}
+
+.icon-button:hover,
+.runtime-trigger:hover,
+.save-button:hover,
+.selected-file button:hover {
+  background: rgba(255, 255, 255, 0.86);
 }
 
 .content-grid {
@@ -170,10 +262,15 @@ textarea {
 
 .tool-panel,
 .status-panel {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.52)),
+    rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.74);
   border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 18px 46px rgba(52, 67, 86, 0.13),
+    inset 0 1px rgba(255, 255, 255, 0.92),
+    inset 0 -1px rgba(75, 91, 113, 0.08);
 }
 
 .tool-panel {
@@ -188,6 +285,7 @@ textarea {
 }
 
 .status-panel h3 {
+  color: #263242;
   font-size: 15px;
 }
 
@@ -204,7 +302,7 @@ textarea {
 }
 
 .field span {
-  color: #344054;
+  color: #354253;
   font-size: 13px;
   font-weight: 650;
 }
@@ -212,8 +310,8 @@ textarea {
 input,
 select,
 textarea {
-  background: #ffffff;
-  border: 1px solid #cfd8e6;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(155, 171, 190, 0.42);
   border-radius: 8px;
   color: #172033;
   min-height: 40px;
@@ -226,8 +324,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: rgba(21, 115, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(21, 115, 255, 0.13);
 }
 
 .inline-fields {
@@ -258,37 +356,45 @@ textarea:focus {
 
 .notice {
   align-items: center;
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.54);
   border-radius: 8px;
+  color: #415064;
   display: flex;
   gap: 9px;
   padding: 11px 12px;
 }
 
 .notice.warning {
-  background: #fff7ed;
+  background: rgba(255, 245, 234, 0.78);
+  border-color: rgba(251, 146, 60, 0.26);
   color: #9a3412;
 }
 
 .drop-zone {
-  border: 1px dashed #a9b6c8;
+  border: 1px dashed rgba(110, 129, 151, 0.48);
   border-radius: 8px;
   display: grid;
   gap: 12px;
   padding: 14px;
   transition:
     background 160ms ease,
-    border-color 160ms ease;
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .drop-zone.dragging {
-  background: #eff6ff;
-  border-color: #2563eb;
+  background: rgba(231, 242, 255, 0.76);
+  border-color: rgba(21, 115, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(21, 115, 255, 0.16);
 }
 
 .drop-action {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(247, 250, 253, 0.58)),
+    rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.66);
   border-radius: 8px;
   color: #172033;
   cursor: pointer;
@@ -316,8 +422,8 @@ textarea:focus {
 
 .selected-file {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(163, 178, 197, 0.34);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -345,7 +451,7 @@ textarea:focus {
 
 .selected-file button {
   align-items: center;
-  background: #f1f5f9;
+  background: rgba(241, 245, 249, 0.78);
   border: 0;
   border-radius: 8px;
   color: #475467;
@@ -359,9 +465,12 @@ textarea:focus {
 
 .run-button {
   align-items: center;
-  background: #172033;
+  background: linear-gradient(180deg, #1f6feb, #1559c7);
   border: 0;
   border-radius: 8px;
+  box-shadow:
+    0 12px 24px rgba(31, 111, 235, 0.24),
+    inset 0 1px rgba(255, 255, 255, 0.28);
   color: #ffffff;
   cursor: pointer;
   display: inline-flex;
@@ -373,8 +482,8 @@ textarea:focus {
 
 .save-button {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #cfd8e6;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(155, 171, 190, 0.4);
   border-radius: 8px;
   color: #172033;
   cursor: pointer;
@@ -388,6 +497,7 @@ textarea:focus {
 
 .run-button:disabled {
   background: #a8b1c2;
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -402,8 +512,8 @@ textarea:focus {
 
 .runtime-trigger {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #d8dee9;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(155, 171, 190, 0.38);
   border-radius: 8px;
   color: #475467;
   cursor: pointer;
@@ -418,8 +528,10 @@ textarea:focus {
 }
 
 .runtime-popover {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.7)),
+    rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.76);
   border-radius: 8px;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
   display: grid;
@@ -447,7 +559,7 @@ textarea:focus {
 
 .dependency {
   align-items: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(163, 178, 197, 0.32);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -481,7 +593,8 @@ textarea:focus {
 }
 
 .job {
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.44);
+  border: 1px solid rgba(163, 178, 197, 0.32);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -490,11 +603,11 @@ textarea:focus {
 }
 
 .job.complete {
-  border-color: #bbf7d0;
+  border-color: rgba(22, 163, 74, 0.32);
 }
 
 .job.failed {
-  border-color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.32);
 }
 
 .job strong {
@@ -535,6 +648,496 @@ textarea:focus {
   }
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #eef3f8;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(113, 113, 122, 0.22), transparent 30%),
+      radial-gradient(circle at 84% 18%, rgba(82, 82, 91, 0.18), transparent 34%),
+      linear-gradient(135deg, #18181b 0%, #27272a 54%, #09090b 100%);
+  }
+
+  .app-shell {
+    background:
+      linear-gradient(115deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04)),
+      radial-gradient(circle at 70% 6%, rgba(255, 255, 255, 0.12), transparent 28%);
+  }
+
+  .sidebar,
+  .tool-panel,
+  .status-panel,
+  .runtime-popover {
+    background:
+      linear-gradient(145deg, rgba(46, 58, 72, 0.72), rgba(27, 36, 47, 0.48)),
+      rgba(25, 33, 43, 0.68);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #edf3f8;
+  }
+
+  .brand h1,
+  .topbar h2,
+  .status-panel h3,
+  .tool-button.selected,
+  .drop-action,
+  input,
+  select,
+  textarea,
+  .save-button {
+    color: #eef3f8;
+  }
+
+  .brand p,
+  .topbar p,
+  .tool-button small,
+  .drop-action small,
+  .selected-file small,
+  .job small,
+  .empty,
+  .dependency small {
+    color: #aab6c3;
+  }
+
+  .brand-mark,
+  .tool-button.selected,
+  .tool-icon,
+  .drop-action,
+  .notice,
+  input,
+  select,
+  textarea,
+  .selected-file,
+  .job,
+  .runtime-trigger,
+  .save-button {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.app-shell {
+  background: #18181b;
+  color: #f4f4f5;
+  grid-template-columns: 260px minmax(0, 1fr);
+  transition: grid-template-columns 180ms ease;
+}
+
+.sidebar {
+  background: rgba(39, 39, 42, 0.18);
+  border-right-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset -1px 0 rgba(255, 255, 255, 0.05);
+  color: #f4f4f5;
+  display: flex;
+  flex-direction: column;
+  padding: 38px 16px 16px;
+}
+
+.brand-mark,
+.tool-icon {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: #d4d4d8;
+}
+
+.brand {
+  margin-bottom: 24px;
+  min-height: auto;
+  padding: 0 2px;
+}
+
+.brand h1,
+.topbar h2,
+.status-panel h3 {
+  color: #f4f4f5;
+}
+
+.brand p,
+.topbar p,
+.tool-button small,
+.drop-action small,
+.selected-file small,
+.job small,
+.empty,
+.dependency small {
+  color: #a1a1aa;
+}
+
+.tool-button:hover {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: transparent;
+}
+
+.tool-button.selected {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: transparent;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.tool-list {
+  gap: 2px;
+}
+
+.tool-button {
+  border-radius: 6px;
+  gap: 10px;
+  grid-template-columns: 22px 1fr;
+  min-height: 30px;
+  padding: 4px 8px;
+}
+
+.tool-icon {
+  height: 20px;
+  width: 20px;
+}
+
+.tool-button strong {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.settings-button {
+  margin-top: auto;
+}
+
+body[data-native-shell="macos"] .workspace,
+.workspace {
+  background: #18181b;
+}
+
+body[data-native-shell="macos"] .workspace {
+  box-shadow: -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
+  padding-left: 54px;
+}
+
+.tool-panel,
+.status-panel,
+.runtime-popover {
+  background:
+    linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
+    #27272a;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.2),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+  color: #f4f4f5;
+}
+
+.field span,
+.toggle-row label,
+.notice,
+.selected-file button,
+.runtime-trigger,
+.save-button {
+  color: #d4d4d8;
+}
+
+input,
+select,
+textarea,
+.notice,
+.selected-file,
+.job,
+.runtime-trigger,
+.save-button {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f4f4f5;
+}
+
+.drop-zone {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.drop-zone.dragging {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.drop-action {
+  background:
+    linear-gradient(145deg, rgba(55, 58, 64, 0.78), rgba(39, 41, 46, 0.78)),
+    rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f2f4f6;
+}
+
+.icon-button,
+.runtime-trigger,
+.save-button,
+.selected-file button {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #d8dde2;
+}
+
+.icon-button:hover,
+.runtime-trigger:hover,
+.save-button:hover,
+.selected-file button:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.run-button {
+  background: linear-gradient(180deg, #f3f4f6, #d6d9de);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.24),
+    inset 0 1px rgba(255, 255, 255, 0.32);
+  color: #17191c;
+}
+
+.run-button:disabled {
+  background: #5f656d;
+  color: #c9cdd2;
+}
+
+.notice.warning,
+.ok,
+.missing {
+  color: #d2d6db;
+}
+
+.settings-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+}
+
+.settings-panel {
+  background:
+    linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
+    #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.2),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+  color: #f4f4f5;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.settings-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.settings-heading h3,
+.debug-block h4 {
+  color: #f2f4f6;
+  font-size: 15px;
+  margin: 0;
+}
+
+.segmented-control {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+}
+
+.segmented-control button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #aeb5bc;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.segmented-control button.selected {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.runtime-debug-panel {
+  gap: 18px;
+}
+
+.save-button.compact {
+  min-height: 30px;
+}
+
+.debug-table {
+  display: grid;
+  gap: 8px;
+}
+
+.debug-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 140px 110px minmax(0, 1fr);
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.debug-row span,
+.debug-block strong {
+  color: #f2f4f6;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.debug-row strong {
+  color: #d4d4d8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.debug-row code {
+  color: #a1a1aa;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-block {
+  display: grid;
+  gap: 8px;
+}
+
+.debug-block p {
+  color: #a1a1aa;
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+:root[data-theme="light"] {
+  color: #27272a;
+  background: #fafafa;
+}
+
+:root[data-theme="light"] .app-shell {
+  background: #fafafa;
+  color: #27272a;
+}
+
+:root[data-theme="light"] .sidebar {
+  background: rgba(250, 250, 250, 0.06);
+  border-right-color: rgba(39, 39, 42, 0.08);
+  box-shadow: inset -1px 0 rgba(39, 39, 42, 0.03);
+  color: #27272a;
+}
+
+:root[data-theme="light"] .workspace,
+:root[data-theme="light"] body[data-native-shell="macos"] .workspace {
+  background: #fafafa;
+  box-shadow: -1px 0 rgba(39, 39, 42, 0.1);
+}
+
+:root[data-theme="light"] .tool-panel,
+:root[data-theme="light"] .status-panel,
+:root[data-theme="light"] .runtime-popover,
+:root[data-theme="light"] .settings-panel {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 244, 245, 0.98)),
+    #ffffff;
+  border-color: rgba(39, 39, 42, 0.1);
+  box-shadow:
+    0 18px 46px rgba(39, 39, 42, 0.08),
+    inset 0 1px rgba(255, 255, 255, 0.9);
+  color: #27272a;
+}
+
+:root[data-theme="light"] .brand h1,
+:root[data-theme="light"] .topbar h2,
+:root[data-theme="light"] .status-panel h3,
+:root[data-theme="light"] .settings-heading h3,
+:root[data-theme="light"] .debug-block h4,
+:root[data-theme="light"] .debug-row span,
+:root[data-theme="light"] .debug-block strong {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .brand p,
+:root[data-theme="light"] .topbar p,
+:root[data-theme="light"] .tool-button small,
+:root[data-theme="light"] .drop-action small,
+:root[data-theme="light"] .selected-file small,
+:root[data-theme="light"] .job small,
+:root[data-theme="light"] .empty,
+:root[data-theme="light"] .dependency small,
+:root[data-theme="light"] .debug-row code,
+:root[data-theme="light"] .debug-block p {
+  color: #71717a;
+}
+
+:root[data-theme="light"] .brand-mark,
+:root[data-theme="light"] .tool-icon,
+:root[data-theme="light"] input,
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] .notice,
+:root[data-theme="light"] .selected-file,
+:root[data-theme="light"] .job,
+:root[data-theme="light"] .runtime-trigger,
+:root[data-theme="light"] .save-button,
+:root[data-theme="light"] .icon-button,
+:root[data-theme="light"] .debug-row,
+:root[data-theme="light"] .segmented-control {
+  background: rgba(39, 39, 42, 0.04);
+  border-color: rgba(39, 39, 42, 0.1);
+  color: #27272a;
+}
+
+:root[data-theme="light"] .brand-mark,
+:root[data-theme="light"] .tool-icon {
+  background: transparent;
+  border-color: transparent;
+}
+
+:root[data-theme="light"] .tool-button:hover,
+:root[data-theme="light"] .icon-button:hover,
+:root[data-theme="light"] .runtime-trigger:hover,
+:root[data-theme="light"] .save-button:hover,
+:root[data-theme="light"] .selected-file button:hover {
+  background: rgba(39, 39, 42, 0.055);
+}
+
+:root[data-theme="light"] .tool-button.selected,
+:root[data-theme="light"] .segmented-control button.selected {
+  background: rgba(39, 39, 42, 0.08);
+  border-color: transparent;
+  box-shadow: none;
+  color: #18181b;
+}
+
+:root[data-theme="light"] .drop-action {
+  background: rgba(39, 39, 42, 0.04);
+  border-color: rgba(39, 39, 42, 0.1);
+  color: #27272a;
+}
+
+:root[data-theme="light"] .run-button {
+  background: linear-gradient(180deg, #2f3338, #202328);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .run-button:disabled {
+  background: #c2c7cf;
+  color: #68707a;
+}
+
 @media (max-width: 980px) {
   body {
     min-width: 0;
@@ -546,10 +1149,14 @@ textarea:focus {
   }
 
   .sidebar {
-    padding-bottom: 14px;
+    padding: 58px 14px 14px;
   }
 
   .tool-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
   }
 }

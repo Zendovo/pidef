@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
@@ -11,12 +10,16 @@ import {
   Loader2,
   Play,
   RefreshCw,
-  ShieldCheck,
+  Settings,
   X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { invokeCommand, isTauriRuntime } from "./runtime";
 import { toolById, tools, type ToolDefinition, type ToolId } from "./tools";
 import type { DependencySet, JobState, OperationOptions } from "./types";
+
+type AppearanceMode = "system" | "light" | "dark";
+type AppView = ToolId | "settings";
 
 type FormState = Omit<ToolDefinition["defaults"], "input" | "inputs"> & {
   input: string;
@@ -43,11 +46,17 @@ const initialForm = (tool: ToolDefinition): FormState => ({
 
 export function App() {
   const [selectedToolId, setSelectedToolId] = useState<ToolId>("mergePdf");
+  const [activeView, setActiveView] = useState<AppView>("mergePdf");
+  const [appearance, setAppearance] = useState<AppearanceMode>(() => {
+    const stored = localStorage.getItem("appearance");
+    return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+  });
   const [dependencies, setDependencies] = useState<DependencySet | null>(null);
   const [operationOptions, setOperationOptions] = useState<OperationOptions[]>([]);
   const [form, setForm] = useState<FormState>(() => initialForm(toolById.mergePdf));
   const [jobs, setJobs] = useState<JobState[]>([]);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [isNativeSidebarCollapsed, setIsNativeSidebarCollapsed] = useState(false);
 
   const selectedTool = toolById[selectedToolId];
   const selectedOption = operationOptions.find((option) => option.tool === selectedToolId);
@@ -63,10 +72,56 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyAppearance = () => {
+      const resolved = appearance === "system" ? (media.matches ? "dark" : "light") : appearance;
+      document.documentElement.dataset.theme = resolved;
+      document.documentElement.dataset.appearance = appearance;
+      localStorage.setItem("appearance", appearance);
+    };
+
+    applyAppearance();
+    void invokeCommand("set_appearance", { appearance });
+    media.addEventListener("change", applyAppearance);
+    return () => media.removeEventListener("change", applyAppearance);
+  }, [appearance]);
+
+  useEffect(() => {
     setForm(initialForm(selectedTool));
   }, [selectedTool]);
 
   useEffect(() => {
+    const handleNativeToolSelected = (event: Event) => {
+      const tool = (event as CustomEvent<{ tool?: AppView }>).detail?.tool;
+      if (tool === "settings") {
+        setActiveView("settings");
+        return;
+      }
+      if (!tool || !toolById[tool]) return;
+      setActiveView(tool);
+      setSelectedToolId(tool);
+    };
+
+    window.addEventListener("native-tool-selected", handleNativeToolSelected);
+    return () => window.removeEventListener("native-tool-selected", handleNativeToolSelected);
+  }, []);
+
+  useEffect(() => {
+    const handleNativeSidebarVisibility = (event: Event) => {
+      const collapsed = Boolean(
+        (event as CustomEvent<{ collapsed?: boolean }>).detail?.collapsed,
+      );
+      setIsNativeSidebarCollapsed(collapsed);
+    };
+
+    window.addEventListener("native-sidebar-visibility", handleNativeSidebarVisibility);
+    return () =>
+      window.removeEventListener("native-sidebar-visibility", handleNativeSidebarVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
     let unlisten: (() => void) | undefined;
     void getCurrentWindow()
       .onDragDropEvent((event) => {
@@ -102,8 +157,8 @@ export function App() {
 
   async function refreshRuntime() {
     const [deps, options] = await Promise.all([
-      invoke<DependencySet>("get_dependencies"),
-      invoke<OperationOptions[]>("get_operation_options"),
+      invokeCommand<DependencySet>("get_dependencies"),
+      invokeCommand<OperationOptions[]>("get_operation_options"),
     ]);
     setDependencies(deps);
     setOperationOptions(options);
@@ -158,7 +213,7 @@ export function App() {
     setJobs((current) => [newJob, ...current]);
 
     try {
-      const result = await invoke<JobState["result"]>("execute_job", { request });
+      const result = await invokeCommand<JobState["result"]>("execute_job", { request });
       setJobs((current) =>
         current.map((job) =>
           job.id === id
@@ -188,7 +243,7 @@ export function App() {
         filters: outputFilters(job.tool),
       });
       if (!destination) return;
-      await invoke("save_output", { source, destination });
+      await invokeCommand("save_output", { source, destination });
       markSaved(job.id, destination);
       return;
     }
@@ -202,7 +257,7 @@ export function App() {
     if (!folder || Array.isArray(folder)) return;
 
     for (const source of job.result.outputs) {
-      await invoke("save_output", {
+      await invokeCommand("save_output", {
         source,
         destination: `${folder}/${basename(source)}`,
       });
@@ -217,17 +272,15 @@ export function App() {
   }
 
   const canRun = !disabledReason && selectedFiles.length > 0;
+  const isSettingsView = activeView === "settings";
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${isNativeSidebarCollapsed ? "native-sidebar-collapsed" : ""}`}>
+      <div className="window-drag-strip" data-tauri-drag-region />
       <section className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">
-            <ShieldCheck size={22} />
-          </div>
+        <div className="brand" data-tauri-drag-region>
           <div>
             <h1>Local PDF Tool</h1>
-            <p>Offline document workflows</p>
           </div>
         </div>
 
@@ -239,34 +292,63 @@ export function App() {
             return (
               <button
                 key={tool.id}
-                className={`tool-button ${selectedToolId === tool.id ? "selected" : ""}`}
-                onClick={() => setSelectedToolId(tool.id)}
+                className={`tool-button ${activeView === tool.id ? "selected" : ""}`}
+                onClick={() => {
+                  setSelectedToolId(tool.id);
+                  setActiveView(tool.id);
+                }}
                 type="button"
               >
-                <span className="tool-icon" style={{ color: tool.accent }}>
+                <span className="tool-icon">
                   <Icon size={18} />
                 </span>
                 <span>
                   <strong>{tool.title}</strong>
-                  <small>{unavailable ? "Needs setup" : "Ready"}</small>
+                  {unavailable ? <small>Needs setup</small> : null}
                 </span>
               </button>
             );
           })}
         </div>
+
+        <button
+          className={`tool-button settings-button ${isSettingsView ? "selected" : ""}`}
+          onClick={() => setActiveView("settings")}
+          type="button"
+        >
+          <span className="tool-icon">
+            <Settings size={18} />
+          </span>
+          <span>
+            <strong>Settings</strong>
+          </span>
+        </button>
       </section>
 
       <section className="workspace">
         <header className="topbar">
-          <div>
-            <h2>{selectedTool.title}</h2>
-            <p>{selectedTool.description}</p>
+          <div data-tauri-drag-region>
+            <h2>{isSettingsView ? "Settings" : selectedTool.title}</h2>
+            <p>
+              {isSettingsView
+                ? "Appearance and runtime diagnostics."
+                : selectedTool.description}
+            </p>
           </div>
           <button className="icon-button" onClick={refreshRuntime} type="button" title="Refresh">
             <RefreshCw size={18} />
           </button>
         </header>
 
+        {isSettingsView ? (
+          <SettingsView
+            appearance={appearance}
+            dependencies={dependencyList}
+            operationOptions={operationOptions}
+            onAppearanceChange={setAppearance}
+            onRefreshRuntime={refreshRuntime}
+          />
+        ) : (
         <div className="content-grid">
           <form className="tool-panel" onSubmit={submitJob}>
             {disabledReason ? (
@@ -489,8 +571,82 @@ export function App() {
             </section>
           </aside>
         </div>
+        )}
       </section>
     </main>
+  );
+}
+
+function SettingsView({
+  appearance,
+  dependencies,
+  operationOptions,
+  onAppearanceChange,
+  onRefreshRuntime,
+}: {
+  appearance: AppearanceMode;
+  dependencies: DependencySet[keyof DependencySet][];
+  operationOptions: OperationOptions[];
+  onAppearanceChange: (appearance: AppearanceMode) => void;
+  onRefreshRuntime: () => void;
+}) {
+  const runtimeRows = dependencies.length > 0 ? dependencies : [];
+  const unavailableTools = operationOptions.filter((option) => option.unavailableReason);
+
+  return (
+    <div className="settings-grid">
+      <section className="settings-panel">
+        <div className="settings-heading">
+          <h3>Appearance</h3>
+        </div>
+        <div className="segmented-control" aria-label="Appearance">
+          {(["system", "light", "dark"] as AppearanceMode[]).map((mode) => (
+            <button
+              className={appearance === mode ? "selected" : ""}
+              key={mode}
+              onClick={() => onAppearanceChange(mode)}
+              type="button"
+            >
+              {titleCase(mode)}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-panel runtime-debug-panel">
+        <div className="settings-heading">
+          <h3>Runtime Debug</h3>
+          <button className="save-button compact" onClick={onRefreshRuntime} type="button">
+            <RefreshCw size={15} />
+            Refresh
+          </button>
+        </div>
+
+        <div className="debug-table">
+          {runtimeRows.map((dependency) => (
+            <div className="debug-row" key={dependency.name}>
+              <span>{dependency.name}</span>
+              <strong>{dependency.available ? dependency.source : "unavailable"}</strong>
+              <code>{dependency.command || "not found"}</code>
+            </div>
+          ))}
+        </div>
+
+        <div className="debug-block">
+          <h4>Unavailable Tools</h4>
+          {unavailableTools.length === 0 ? (
+            <p>No unavailable tools reported.</p>
+          ) : (
+            unavailableTools.map((option) => (
+              <p key={option.tool}>
+                <strong>{toolById[option.tool].title}</strong>
+                <span>{option.unavailableReason}</span>
+              </p>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -664,6 +820,10 @@ function suggestedOutputName(tool: ToolId, source: string) {
 
 function basename(path: string) {
   return path.split(/[\\/]/).pop() || path;
+}
+
+function titleCase(value: string) {
+  return `${value[0].toUpperCase()}${value.slice(1)}`;
 }
 
 function unique(value: string, index: number, values: string[]) {

@@ -9,7 +9,6 @@ import {
   FolderOpen,
   Info,
   Loader2,
-  Play,
   RefreshCw,
   Settings,
   Copy,
@@ -24,7 +23,7 @@ import type { DependencySet, JobResult, JobState, OperationOptions, PdfPreview }
 
 type AppearanceMode = "system" | "light" | "dark";
 type AppView = ToolId | "history" | "settings";
-type HistoryEntryKind = "opened" | "generated" | "saved";
+type HistoryEntryKind = "opened" | "saved";
 type HistoryEntry = {
   id: string;
   kind: HistoryEntryKind;
@@ -64,7 +63,6 @@ const initialForm = (tool: ToolDefinition): FormState => ({
 
 const RECENT_FILES_KEY = "pidef.recentFiles";
 const HISTORY_KEY = "pidef.history";
-const STORE_OUTPUTS_KEY = "pidef.storeGeneratedOutputs";
 const DEFAULT_VISIBLE_PAGES = 20;
 const SHOW_ALL_PREVIEW_LIMIT = 65_535;
 
@@ -88,12 +86,10 @@ export function App() {
   const [draggedOrganizeId, setDraggedOrganizeId] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<string[]>(() => readJson(RECENT_FILES_KEY, []));
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>(() =>
-    readJson(HISTORY_KEY, []),
+    readJson<HistoryEntry[]>(HISTORY_KEY, []).filter(
+      (entry) => entry.kind === "opened" || entry.kind === "saved",
+    ),
   );
-  const [storeGeneratedOutputs, setStoreGeneratedOutputs] = useState(() => {
-    const stored = localStorage.getItem(STORE_OUTPUTS_KEY);
-    return stored === null ? true : stored === "true";
-  });
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
   const [isAddFileMenuOpen, setIsAddFileMenuOpen] = useState(false);
 
@@ -192,10 +188,6 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(historyEntries.slice(0, 50)));
   }, [historyEntries]);
-
-  useEffect(() => {
-    localStorage.setItem(STORE_OUTPUTS_KEY, String(storeGeneratedOutputs));
-  }, [storeGeneratedOutputs]);
 
   useEffect(() => {
     const handleNativeToolSelected = (event: Event) => {
@@ -345,7 +337,7 @@ export function App() {
     });
   }
 
-  async function runSelectedJob(mode: "save" | "saveAs" = "save") {
+  async function runSelectedJob() {
     if (!canRunSelectedTool) return;
 
     const id = crypto.randomUUID();
@@ -368,67 +360,27 @@ export function App() {
             ? {
                 ...job,
                 status: "complete",
-                message: mode === "saveAs"
-                  ? "Generated. Choose where to save it."
-                  : storeGeneratedOutputs
-                  ? "Generated. Saving a copy to Documents/Pidef/Outputs..."
-                  : "Generated. Use Save As to choose a location.",
+                message: "Generated. Choose where to save it.",
                 result,
               }
             : job,
         ),
       );
-      addHistoryEntries(
-        result.outputs.map((path) => ({
-          kind: "generated",
-          path,
-          tool: selectedToolId,
-        })),
-      );
-      if (mode === "saveAs") {
-        const completedJob: JobState = {
-          ...newJob,
-          status: "complete",
-          message: "Generated. Choose where to save it.",
-          result,
-        };
-        await saveJobOutput(completedJob);
-      } else if (storeGeneratedOutputs) {
-        try {
-          const archived = await invokeCommand<string[]>("archive_outputs", {
-            sources: result.outputs,
-          });
-          addHistoryEntries(
-            archived.map((path) => ({
-              kind: "saved",
-              path,
-              tool: selectedToolId,
-            })),
-          );
-          setJobs((current) =>
-            current.map((job) =>
-              job.id === id
-                ? {
-                    ...job,
-                    message: "Saved to Documents/Pidef/Outputs. Use Save As for another location.",
-                  }
-                : job,
-            ),
-          );
-        } catch (archiveError) {
-          setJobs((current) =>
-            current.map((job) =>
-              job.id === id
-                ? {
-                    ...job,
-                    message: `Generated. Use Save As to choose a location. Could not save to Pidef folder: ${String(
-                      archiveError,
-                    )}`,
-                  }
-                : job,
-            ),
-          );
-        }
+      const completedJob: JobState = {
+        ...newJob,
+        status: "complete",
+        message: "Generated. Choose where to save it.",
+        result,
+      };
+      const saved = await saveJobOutput(completedJob);
+      if (!saved) {
+        setJobs((current) =>
+          current.map((job) =>
+            job.id === id
+              ? { ...job, message: "Generated. Use Save As to choose a location." }
+              : job,
+          ),
+        );
       }
     } catch (error) {
       setJobs((current) =>
@@ -441,8 +393,8 @@ export function App() {
     }
   }
 
-  async function saveJobOutput(job: JobState) {
-    if (!job.result || job.result.outputs.length === 0) return;
+  async function saveJobOutput(job: JobState): Promise<boolean> {
+    if (!job.result || job.result.outputs.length === 0) return false;
 
     if (job.result.outputs.length === 1) {
       const source = job.result.outputs[0];
@@ -451,10 +403,10 @@ export function App() {
         defaultPath: suggestedOutputName(job.tool, source),
         filters: outputFilters(job.tool),
       });
-      if (!destination) return;
+      if (!destination) return false;
       await invokeCommand("save_output", { source, destination });
-      markSaved(job.id, destination);
-      return;
+      markSaved(job.id, destination, job.tool);
+      return true;
     }
 
     const folder = await open({
@@ -463,7 +415,7 @@ export function App() {
       multiple: false,
       canCreateDirectories: true,
     });
-    if (!folder || Array.isArray(folder)) return;
+    if (!folder || Array.isArray(folder)) return false;
 
     for (const source of job.result.outputs) {
       await invokeCommand("save_output", {
@@ -471,7 +423,8 @@ export function App() {
         destination: `${folder}/${basename(source)}`,
       });
     }
-    markSaved(job.id, folder);
+    markSaved(job.id, folder, job.tool);
+    return true;
   }
 
   async function saveAsCurrentOutput() {
@@ -480,18 +433,17 @@ export function App() {
       return;
     }
 
-    await runSelectedJob("saveAs");
+    await runSelectedJob();
   }
 
-  function markSaved(jobId: string, _destination: string) {
-    const savedJob = jobs.find((job) => job.id === jobId);
+  function markSaved(jobId: string, _destination: string, tool: ToolId | null) {
     setJobs((current) =>
       current.map((job) =>
         job.id === jobId ? { ...job, message: `Saved as ${basename(_destination)}.` } : job,
       ),
     );
     if (_destination) {
-      addHistoryEntries([{ kind: "saved", path: _destination, tool: savedJob?.tool ?? null }]);
+      addHistoryEntries([{ kind: "saved", path: _destination, tool }]);
     }
   }
 
@@ -621,8 +573,6 @@ export function App() {
             dependencies={dependencyList}
             operationOptions={operationOptions}
             onAppearanceChange={setAppearance}
-            storeGeneratedOutputs={storeGeneratedOutputs}
-            onStoreGeneratedOutputsChange={setStoreGeneratedOutputs}
             onRefreshRuntime={refreshRuntime}
           />
         ) : (
@@ -715,20 +665,11 @@ export function App() {
 
               <div className="notice">
                 <FolderOpen size={18} />
-                <span>Generated files are temporary until saved.</span>
+                <span>Generated files stay temporary until you choose where to save them.</span>
               </div>
 
               <button
                 className="run-button"
-                type="button"
-                disabled={!canRunSelectedTool}
-                onClick={() => void runSelectedJob("save")}
-              >
-                <Play size={18} />
-                Save
-              </button>
-              <button
-                className="save-button"
                 type="button"
                 disabled={!canRunSelectedTool}
                 onClick={() => void saveAsCurrentOutput()}
@@ -749,17 +690,13 @@ function SettingsView({
   appearance,
   dependencies,
   operationOptions,
-  storeGeneratedOutputs,
   onAppearanceChange,
-  onStoreGeneratedOutputsChange,
   onRefreshRuntime,
 }: {
   appearance: AppearanceMode;
   dependencies: DependencySet[keyof DependencySet][];
   operationOptions: OperationOptions[];
-  storeGeneratedOutputs: boolean;
   onAppearanceChange: (appearance: AppearanceMode) => void;
-  onStoreGeneratedOutputsChange: (value: boolean) => void;
   onRefreshRuntime: () => void;
 }) {
   const runtimeRows = dependencies.length > 0 ? dependencies : [];
@@ -783,20 +720,6 @@ function SettingsView({
             </button>
           ))}
         </div>
-      </section>
-
-      <section className="settings-panel">
-        <div className="settings-heading">
-          <h3>File Storage</h3>
-        </div>
-        <label className="setting-toggle">
-          <input
-            checked={storeGeneratedOutputs}
-            onChange={(event) => onStoreGeneratedOutputsChange(event.target.checked)}
-            type="checkbox"
-          />
-          <span>Keep generated files in Documents/Pidef/Outputs</span>
-        </label>
       </section>
 
       <section className="settings-panel runtime-debug-panel">
@@ -1078,7 +1001,7 @@ function CurrentJobStatus({
   onSaveJobOutput,
 }: {
   job: JobState | null;
-  onSaveJobOutput: (job: JobState) => Promise<void>;
+  onSaveJobOutput: (job: JobState) => Promise<boolean>;
 }) {
   if (!job) return null;
 
@@ -1621,8 +1544,7 @@ function unique(value: string, index: number, values: string[]) {
 
 function historyLabel(entry: HistoryEntry) {
   if (entry.kind === "opened") return "Opened";
-  if (entry.kind === "generated") return entry.tool ? `${toolById[entry.tool].title} output` : "Generated";
-  return "Saved";
+  return entry.tool ? `${toolById[entry.tool].title} saved` : "Saved";
 }
 
 function readJson<T>(key: string, fallback: T): T {

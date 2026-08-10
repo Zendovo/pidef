@@ -1457,18 +1457,6 @@ textarea,
   min-height: 30px;
 }
 
-.setting-toggle {
-  align-items: center;
-  display: flex;
-  gap: 9px;
-}
-
-.setting-toggle input {
-  height: 16px;
-  min-height: 16px;
-  width: 16px;
-}
-
 .debug-table {
   display: grid;
   gap: 8px;

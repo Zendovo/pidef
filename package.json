@@ -10,6 +10,8 @@
     "build:qpdf": "node scripts/build-qpdf-from-source.mjs",
     "prepare:engines": "node scripts/prepare-bundled-engines.mjs",
     "verify:engines": "node scripts/verify-bundled-engines.mjs",
+    "package:app": "npm run verify:engines && npm run tauri build -- --bundles app",
+    "package:release": "npm run verify:engines && npm run tauri build",
     "tauri": "tauri",
     "test": "vitest run"
   },

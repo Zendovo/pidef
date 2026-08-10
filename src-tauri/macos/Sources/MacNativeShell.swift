@@ -87,7 +87,7 @@ private enum MacNativeShellInstaller {
   private static func configureWindow(_ window: NSWindow) {
     window.titleVisibility = .hidden
     window.titlebarAppearsTransparent = true
-    window.isMovableByWindowBackground = true
+    window.isMovableByWindowBackground = false
     window.isOpaque = false
     window.backgroundColor = .clear
     window.tabbingMode = .disallowed
@@ -213,6 +213,8 @@ private struct MacNativeSidebar: View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(spacing: 10) {
         brand
+        WindowDragRegion()
+          .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
         Spacer(minLength: 12)
         MacSidebarToggleButton(sidebarState: sidebarState)
       }
@@ -232,6 +234,13 @@ private struct MacNativeSidebar: View {
 
       Spacer(minLength: 12)
 
+      WindowDragRegion()
+        .frame(height: 24)
+        .padding(.horizontal, 16)
+
+      toolButton(.history)
+        .padding(.horizontal, 16)
+
       toolButton(.settings)
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
@@ -249,6 +258,7 @@ private struct MacNativeSidebar: View {
     Text("Pidef")
       .font(MacSidebarFont.brand)
       .foregroundStyle(Color.primary.opacity(0.76))
+      .overlay(WindowDragRegion())
   }
 
   private func toolButton(_ tool: MacTool) -> some View {
@@ -279,6 +289,24 @@ private struct MacNativeSidebar: View {
     .onHover { isHovered in
       hoveredToolID = isHovered ? tool.id : nil
     }
+  }
+}
+
+private struct WindowDragRegion: NSViewRepresentable {
+  func makeNSView(context: Context) -> NSView {
+    SidebarDragView()
+  }
+
+  func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+private final class SidebarDragView: NSView {
+  override var mouseDownCanMoveWindow: Bool {
+    true
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    window?.performDrag(with: event)
   }
 }
 
@@ -336,6 +364,7 @@ private struct MacTool: Identifiable {
   ]
 
   static let settings = MacTool(id: "settings", title: "Settings", symbol: "gearshape")
+  static let history = MacTool(id: "history", title: "History", symbol: "clock")
 }
 
 private extension View {

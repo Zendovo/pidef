@@ -46,12 +46,17 @@ button {
 }
 
 .window-drag-strip {
+  -webkit-app-region: drag;
   height: 52px;
   left: 0;
   position: fixed;
   right: 0;
   top: 0;
   z-index: 1;
+}
+
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
 }
 
 .sidebar {
@@ -130,6 +135,10 @@ button {
   margin-top: 10px;
 }
 
+.history-button {
+  margin-top: auto;
+}
+
 .tool-button {
   align-items: center;
   background: transparent;
@@ -188,9 +197,25 @@ button {
 }
 
 .workspace {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
   min-width: 0;
+  overflow: hidden;
   padding: 48px 24px 24px;
   z-index: 2;
+}
+
+.workspace,
+.tool-panel,
+.status-panel,
+.organize-panel,
+.organize-card,
+button,
+input,
+select,
+textarea {
+  -webkit-app-region: no-drag;
 }
 
 body[data-native-shell="macos"] .sidebar {
@@ -260,8 +285,20 @@ body[data-native-shell="macos"] .workspace {
   grid-template-columns: minmax(0, 1fr) 360px;
 }
 
+.workbench {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .tool-panel,
-.status-panel {
+.status-panel,
+.options-panel,
+.history-panel,
+.recent-panel {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.52)),
     rgba(255, 255, 255, 0.62);
@@ -279,14 +316,138 @@ body[data-native-shell="macos"] .workspace {
   padding: 20px;
 }
 
-.status-panel {
+.status-panel,
+.options-panel,
+.history-panel,
+.recent-panel {
   display: grid;
+  gap: 14px;
   padding: 18px;
 }
 
-.status-panel h3 {
+.options-panel {
+  max-height: calc(100vh - 90px);
+  overflow: auto;
+  position: sticky;
+  top: 0;
+}
+
+.status-panel h3,
+.options-panel h3,
+.history-panel h3,
+.recent-panel h3 {
   color: #263242;
   font-size: 15px;
+  margin: 0;
+}
+
+.empty-stage,
+.preview-stage {
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 114px);
+  min-width: 0;
+  overflow: auto;
+  padding: 0 4px 34px 0;
+}
+
+.empty-stage .drop-action {
+  min-height: 172px;
+}
+
+.side-section {
+  display: grid;
+  gap: 12px;
+}
+
+.file-name-field {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+}
+
+.file-name-field span {
+  color: #a1a1aa;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.file-name-field strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+.file-menu {
+  background:
+    linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
+    #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+  display: grid;
+  gap: 4px;
+  min-width: 230px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  z-index: 20;
+}
+
+.file-menu button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #f4f4f5;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+}
+
+.file-menu button:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.file-menu span,
+.file-menu small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-menu span {
+  font-size: 13px;
+}
+
+.file-menu small {
+  color: #a1a1aa;
+  font-size: 11px;
+}
+
+.inline-fields.stacked {
+  grid-template-columns: 1fr;
+}
+
+.toggle-row.stacked {
+  display: grid;
+}
+
+.icon-button.compact {
+  height: 30px;
+  width: 30px;
 }
 
 .panel-heading {
@@ -413,6 +574,283 @@ textarea:focus {
 .drop-action small {
   color: #667085;
   font-size: 12px;
+}
+
+.recent-list,
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.recent-file,
+.history-row {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px;
+  text-align: left;
+}
+
+.recent-file strong,
+.history-row strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-file small,
+.history-row small {
+  color: #a1a1aa;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row span {
+  color: #d4d4d8;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.history-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.preview-panel,
+.organize-panel,
+.selected-stage {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 0;
+}
+
+.stage-file-list {
+  display: grid;
+  gap: 8px;
+}
+
+.stage-file {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 28px minmax(0, 0.8fr) minmax(0, 1.2fr);
+  min-height: 44px;
+  padding: 9px 10px;
+}
+
+.stage-file span {
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.stage-file strong,
+.stage-file small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-file strong {
+  font-size: 13px;
+}
+
+.stage-file small {
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.preview-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.preview-heading strong {
+  color: #f2f4f6;
+  font-size: 13px;
+}
+
+.preview-heading span {
+  color: #a1a1aa;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-strip {
+  display: grid;
+  gap: 10px;
+  grid-auto-columns: 118px;
+  grid-auto-flow: column;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.preview-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.preview-thumb {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  min-width: 0;
+}
+
+.preview-thumb img,
+.organize-thumb {
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.preview-thumb img {
+  aspect-ratio: 0.72;
+  display: block;
+  object-fit: contain;
+  width: 100%;
+}
+
+.preview-thumb figcaption {
+  color: #a1a1aa;
+  font-size: 12px;
+  text-align: center;
+}
+
+.preview-loading {
+  align-items: center;
+  color: #d4d4d8;
+  display: flex;
+  gap: 9px;
+  min-height: 44px;
+}
+
+.organize-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  padding: 2px;
+}
+
+.organize-card {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: grab;
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px;
+  touch-action: none;
+  user-select: none;
+}
+
+.organize-card:active {
+  cursor: grabbing;
+}
+
+.organize-card.dragging {
+  opacity: 0.45;
+  outline: 2px solid rgba(255, 255, 255, 0.22);
+}
+
+.organize-thumb {
+  align-items: center;
+  aspect-ratio: 0.72;
+  display: grid;
+  justify-items: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.organize-thumb img {
+  display: block;
+  max-height: 88%;
+  max-width: 88%;
+  object-fit: contain;
+  transition: transform 120ms ease;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.organize-card-footer {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  min-height: 18px;
+  min-width: 0;
+}
+
+.organize-card-footer span,
+.organize-card-footer small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organize-card-footer span {
+  color: #f2f4f6;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.organize-card-footer small {
+  color: #a1a1aa;
+  font-size: 11px;
+}
+
+.organize-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.organize-actions button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #d8dde2;
+  cursor: pointer;
+  display: grid;
+  height: 30px;
+  justify-items: center;
+  padding: 0;
+}
+
+.organize-actions button:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .selected-files {
@@ -602,6 +1040,42 @@ textarea:focus {
   padding: 10px;
 }
 
+.current-job {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+  padding: 10px;
+}
+
+.current-job.complete {
+  border-color: rgba(22, 163, 74, 0.32);
+}
+
+.current-job.failed {
+  border-color: rgba(239, 68, 68, 0.32);
+}
+
+.current-job strong {
+  display: block;
+  font-size: 13px;
+}
+
+.current-job small {
+  color: #a1a1aa;
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.current-job .save-button {
+  grid-column: 1 / -1;
+}
+
 .job.complete {
   border-color: rgba(22, 163, 74, 0.32);
 }
@@ -666,6 +1140,9 @@ textarea:focus {
   .sidebar,
   .tool-panel,
   .status-panel,
+  .options-panel,
+  .history-panel,
+  .recent-panel,
   .runtime-popover {
     background:
       linear-gradient(145deg, rgba(46, 58, 72, 0.72), rgba(27, 36, 47, 0.48)),
@@ -677,6 +1154,9 @@ textarea:focus {
   .brand h1,
   .topbar h2,
   .status-panel h3,
+  .options-panel h3,
+  .history-panel h3,
+  .recent-panel h3,
   .tool-button.selected,
   .drop-action,
   input,
@@ -701,11 +1181,13 @@ textarea:focus {
   .tool-button.selected,
   .tool-icon,
   .drop-action,
+  .organize-card,
   .notice,
   input,
   select,
   textarea,
   .selected-file,
+  .current-job,
   .job,
   .runtime-trigger,
   .save-button {
@@ -797,7 +1279,7 @@ textarea:focus {
 }
 
 .settings-button {
-  margin-top: auto;
+  margin-top: 2px;
 }
 
 body[data-native-shell="macos"] .workspace,
@@ -819,6 +1301,9 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
 
 .tool-panel,
 .status-panel,
+.options-panel,
+.history-panel,
+.recent-panel,
 .runtime-popover {
   background:
     linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
@@ -972,6 +1457,18 @@ textarea,
   min-height: 30px;
 }
 
+.setting-toggle {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+}
+
+.setting-toggle input {
+  height: 16px;
+  min-height: 16px;
+  width: 16px;
+}
+
 .debug-table {
   display: grid;
   gap: 8px;
@@ -1047,6 +1544,9 @@ textarea,
 
 :root[data-theme="light"] .tool-panel,
 :root[data-theme="light"] .status-panel,
+:root[data-theme="light"] .options-panel,
+:root[data-theme="light"] .history-panel,
+:root[data-theme="light"] .recent-panel,
 :root[data-theme="light"] .runtime-popover,
 :root[data-theme="light"] .settings-panel {
   background:
@@ -1062,6 +1562,9 @@ textarea,
 :root[data-theme="light"] .brand h1,
 :root[data-theme="light"] .topbar h2,
 :root[data-theme="light"] .status-panel h3,
+:root[data-theme="light"] .options-panel h3,
+:root[data-theme="light"] .history-panel h3,
+:root[data-theme="light"] .recent-panel h3,
 :root[data-theme="light"] .settings-heading h3,
 :root[data-theme="light"] .debug-block h4,
 :root[data-theme="light"] .debug-row span,
@@ -1074,6 +1577,13 @@ textarea,
 :root[data-theme="light"] .tool-button small,
 :root[data-theme="light"] .drop-action small,
 :root[data-theme="light"] .selected-file small,
+:root[data-theme="light"] .recent-file small,
+:root[data-theme="light"] .history-row small,
+:root[data-theme="light"] .stage-file span,
+:root[data-theme="light"] .stage-file small,
+:root[data-theme="light"] .file-name-field span,
+:root[data-theme="light"] .file-menu small,
+:root[data-theme="light"] .current-job small,
 :root[data-theme="light"] .job small,
 :root[data-theme="light"] .empty,
 :root[data-theme="light"] .dependency small,
@@ -1087,8 +1597,14 @@ textarea,
 :root[data-theme="light"] input,
 :root[data-theme="light"] select,
 :root[data-theme="light"] textarea,
+:root[data-theme="light"] .organize-card,
 :root[data-theme="light"] .notice,
+:root[data-theme="light"] .recent-file,
+:root[data-theme="light"] .history-row,
+:root[data-theme="light"] .stage-file,
+:root[data-theme="light"] .file-name-field,
 :root[data-theme="light"] .selected-file,
+:root[data-theme="light"] .current-job,
 :root[data-theme="light"] .job,
 :root[data-theme="light"] .runtime-trigger,
 :root[data-theme="light"] .save-button,
@@ -1097,6 +1613,29 @@ textarea,
 :root[data-theme="light"] .segmented-control {
   background: rgba(39, 39, 42, 0.04);
   border-color: rgba(39, 39, 42, 0.1);
+  color: #27272a;
+}
+
+:root[data-theme="light"] .file-menu {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 244, 245, 0.98)),
+    #ffffff;
+  border-color: rgba(39, 39, 42, 0.1);
+}
+
+:root[data-theme="light"] .file-menu button {
+  color: #27272a;
+}
+
+:root[data-theme="light"] .file-menu button:hover {
+  background: rgba(39, 39, 42, 0.07);
+}
+
+:root[data-theme="light"] .preview-panel,
+:root[data-theme="light"] .organize-panel,
+:root[data-theme="light"] .selected-stage {
+  background: transparent;
+  border-color: transparent;
   color: #27272a;
 }
 
@@ -1128,6 +1667,10 @@ textarea,
   color: #27272a;
 }
 
+:root[data-theme="light"] .history-row span {
+  color: #52525b;
+}
+
 :root[data-theme="light"] .run-button {
   background: linear-gradient(180deg, #2f3338, #202328);
   color: #ffffff;
@@ -1138,13 +1681,37 @@ textarea,
   color: #68707a;
 }
 
+:root[data-theme="light"] .preview-heading strong,
+:root[data-theme="light"] .organize-card-footer span {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .preview-heading span,
+:root[data-theme="light"] .preview-thumb figcaption,
+:root[data-theme="light"] .preview-loading,
+:root[data-theme="light"] .organize-card-footer small {
+  color: #71717a;
+}
+
+:root[data-theme="light"] .organize-actions button {
+  background: rgba(39, 39, 42, 0.04);
+  border-color: rgba(39, 39, 42, 0.1);
+  color: #3f3f46;
+}
+
+:root[data-theme="light"] .organize-actions button:hover {
+  background: rgba(39, 39, 42, 0.08);
+}
+
 @media (max-width: 980px) {
   body {
     min-width: 0;
   }
 
   .app-shell,
-  .content-grid {
+  .content-grid,
+  .workbench,
+  .history-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1158,5 +1725,19 @@ textarea,
 
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace,
+  .workbench,
+  .empty-stage,
+  .preview-stage {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .options-panel {
+    max-height: none;
+    position: static;
   }
 }

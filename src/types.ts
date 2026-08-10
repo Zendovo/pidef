@@ -38,3 +38,15 @@ export type JobState = {
   message: string;
   result?: JobResult;
 };
+
+export type PdfPreviewPage = {
+  pageNumber: number;
+  width: number;
+  height: number;
+  dataUrl: string;
+};
+
+export type PdfPreview = {
+  pageCount: number;
+  pages: PdfPreviewPage[];
+};

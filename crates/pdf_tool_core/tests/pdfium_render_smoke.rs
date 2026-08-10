@@ -1,9 +1,11 @@
-use pdf_tool_core::{run_job_with_dependency_roots, JobRequest, Operation};
+use pdf_tool_core::{
+    render_pdf_preview, run_job_with_dependency_roots, JobRequest, Operation, PdfPreviewRequest,
+};
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
 
 #[test]
-fn renders_pdf_to_jpg_with_bundled_pdfium_when_available() {
+fn reuses_bundled_pdfium_for_preview_and_pdf_to_jpg() {
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..");
@@ -21,6 +23,22 @@ fn renders_pdf_to_jpg_with_bundled_pdfium_when_available() {
     let input = temp.path().join("input.pdf");
     let output = temp.path().join("jpg");
     fs::write(&input, minimal_pdf()).unwrap();
+
+    let preview = render_pdf_preview(
+        PdfPreviewRequest {
+            input: input.clone(),
+            max_pages: Some(1),
+            width: Some(120),
+            quality: Some(72),
+        },
+        &[resource_root.clone()],
+    )
+    .unwrap();
+    assert_eq!(preview.page_count, 1);
+    assert_eq!(preview.pages.len(), 1);
+    assert!(preview.pages[0]
+        .data_url
+        .starts_with("data:image/jpeg;base64,"));
 
     let result = run_job_with_dependency_roots(
         JobRequest {

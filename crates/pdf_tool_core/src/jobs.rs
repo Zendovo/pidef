@@ -137,6 +137,31 @@ pub struct OperationOptions {
     pub unavailable_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfPreviewRequest {
+    pub input: PathBuf,
+    pub max_pages: Option<u16>,
+    pub width: Option<i32>,
+    pub quality: Option<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfPreviewPage {
+    pub page_number: u32,
+    pub width: u32,
+    pub height: u32,
+    pub data_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfPreview {
+    pub page_count: u32,
+    pub pages: Vec<PdfPreviewPage>,
+}
+
 #[derive(Debug, Error)]
 pub enum PdfToolError {
     #[error("missing dependency: {0}")]

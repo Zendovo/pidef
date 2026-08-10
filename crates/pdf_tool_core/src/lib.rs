@@ -8,7 +8,8 @@ pub use dependencies::{
 };
 pub use jobs::{
     CompressionProfile, JobProgress, JobRequest, JobResult, Operation, OperationOptions,
-    OrganizePage, PdfToolError, ProtectPermissions, ToolId,
+    OrganizePage, PdfPreview, PdfPreviewPage, PdfPreviewRequest, PdfToolError, ProtectPermissions,
+    ToolId,
 };
-pub use operations::{run_job, run_job_with_dependency_roots};
+pub use operations::{render_pdf_preview, run_job, run_job_with_dependency_roots};
 pub use page_ranges::{parse_page_ranges, PageSelection};

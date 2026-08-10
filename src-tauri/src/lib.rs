@@ -1,8 +1,12 @@
 use pdf_tool_core::{
-    detect_dependencies_with_roots, run_job_with_dependency_roots, DependencySet, JobRequest,
-    JobResult, OperationOptions, ToolId,
+    detect_dependencies_with_roots, render_pdf_preview, run_job_with_dependency_roots,
+    DependencySet, JobRequest, JobResult, OperationOptions, PdfPreview, PdfPreviewRequest, ToolId,
 };
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
 use tauri::{AppHandle, Manager, Theme};
 
 mod macos_native_shell;
@@ -40,6 +44,11 @@ fn execute_job(app: AppHandle, request: JobRequest) -> Result<JobResult, String>
 }
 
 #[tauri::command]
+fn get_pdf_preview(app: AppHandle, request: PdfPreviewRequest) -> Result<PdfPreview, String> {
+    render_pdf_preview(request, &bundled_engine_roots(&app)).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn save_output(source: PathBuf, destination: PathBuf) -> Result<(), String> {
     if source.is_dir() {
         copy_dir_all(&source, &destination).map_err(|error| error.to_string())
@@ -51,6 +60,36 @@ fn save_output(source: PathBuf, destination: PathBuf) -> Result<(), String> {
             .map(|_| ())
             .map_err(|error| error.to_string())
     }
+}
+
+#[tauri::command]
+fn archive_outputs(app: AppHandle, sources: Vec<PathBuf>) -> Result<Vec<PathBuf>, String> {
+    if sources.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let documents = app
+        .path()
+        .document_dir()
+        .map_err(|error| error.to_string())?;
+    let archive_dir = documents
+        .join("Pidef")
+        .join("Outputs")
+        .join(timestamp_folder());
+    fs::create_dir_all(&archive_dir).map_err(|error| error.to_string())?;
+
+    let mut archived = Vec::new();
+    for source in sources {
+        let destination = archive_dir.join(
+            source
+                .file_name()
+                .unwrap_or_else(|| std::ffi::OsStr::new("output")),
+        );
+        copy_path(&source, &destination).map_err(|error| error.to_string())?;
+        archived.push(destination);
+    }
+
+    Ok(archived)
 }
 
 #[tauri::command]
@@ -66,7 +105,18 @@ fn set_appearance(app: AppHandle, appearance: String) -> Result<(), String> {
     Ok(())
 }
 
-fn copy_dir_all(source: &PathBuf, destination: &PathBuf) -> std::io::Result<()> {
+fn copy_path(source: &Path, destination: &Path) -> std::io::Result<()> {
+    if source.is_dir() {
+        copy_dir_all(source, destination)
+    } else {
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(source, destination).map(|_| ())
+    }
+}
+
+fn copy_dir_all(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {
         let entry = entry?;
@@ -79,6 +129,14 @@ fn copy_dir_all(source: &PathBuf, destination: &PathBuf) -> std::io::Result<()> 
         }
     }
     Ok(())
+}
+
+fn timestamp_folder() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+    seconds.to_string()
 }
 
 fn option(tool: ToolId, requires: &[&str], available: bool) -> OperationOptions {
@@ -155,7 +213,9 @@ pub fn run() {
             get_dependencies,
             get_operation_options,
             execute_job,
+            get_pdf_preview,
             save_output,
+            archive_outputs,
             set_appearance
         ])
         .run(tauri::generate_context!())

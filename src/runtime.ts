@@ -27,7 +27,25 @@ export async function invokeCommand<T>(command: string, args?: Record<string, un
     return undefined as T;
   }
 
+  if (command === "get_pdf_preview") {
+    return previewPdfPreview() as T;
+  }
+
   throw new Error(`${command} is available in the Tauri desktop runtime`);
+}
+
+function previewPdfPreview() {
+  return {
+    pageCount: 6,
+    pages: Array.from({ length: 6 }, (_, index) => ({
+      pageNumber: index + 1,
+      width: 180,
+      height: 236,
+      dataUrl: `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="236" viewBox="0 0 180 236"><rect width="180" height="236" rx="10" fill="#f8fafc"/><rect x="22" y="28" width="136" height="18" rx="4" fill="#cbd5e1"/><rect x="22" y="62" width="108" height="10" rx="3" fill="#e2e8f0"/><rect x="22" y="82" width="126" height="10" rx="3" fill="#e2e8f0"/><rect x="22" y="112" width="136" height="62" rx="7" fill="#dbeafe"/><text x="90" y="208" text-anchor="middle" font-family="system-ui" font-size="18" fill="#64748b">${index + 1}</text></svg>`,
+      )}`,
+    })),
+  };
 }
 
 function previewDependencies(): DependencySet {

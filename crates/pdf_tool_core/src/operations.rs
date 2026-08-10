@@ -2,8 +2,9 @@ use crate::{
     dependencies::{detect_dependencies, detect_dependencies_with_roots},
     page_ranges::qpdf_range,
     parse_page_ranges, CompressionProfile, DependencySet, JobRequest, JobResult, Operation,
-    OrganizePage, PdfToolError, ProtectPermissions,
+    OrganizePage, PdfPreview, PdfPreviewPage, PdfPreviewRequest, PdfToolError, ProtectPermissions,
 };
+use base64::{engine::general_purpose, Engine as _};
 use image::codecs::jpeg::JpegEncoder;
 use pdfium_render::prelude::*;
 use std::{
@@ -22,6 +23,65 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub fn run_job(request: JobRequest) -> Result<JobResult, PdfToolError> {
     run_job_with_dependency_roots(request, &[])
+}
+
+pub fn render_pdf_preview(
+    request: PdfPreviewRequest,
+    dependency_roots: &[PathBuf],
+) -> Result<PdfPreview, PdfToolError> {
+    ensure_file(&request.input)?;
+    let dependencies = if dependency_roots.is_empty() {
+        detect_dependencies()
+    } else {
+        detect_dependencies_with_roots(dependency_roots)
+    };
+    require(&dependencies.pdf_renderer)?;
+
+    let pdfium = bind_pdfium(&dependencies)?;
+    let document = pdfium
+        .load_pdf_from_file(&request.input, None)
+        .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?;
+    let page_count = document.pages().len() as u32;
+    let max_pages = request
+        .max_pages
+        .map(usize::from)
+        .unwrap_or(page_count as usize)
+        .max(1);
+    let target_width = request.width.unwrap_or(180).max(48);
+    let quality = request.quality.unwrap_or(72).clamp(1, 100);
+
+    let mut pages = Vec::new();
+    for (index, page) in document.pages().iter().enumerate().take(max_pages) {
+        let ratio = page.height().value / page.width().value.max(1.0);
+        let target_height = ((target_width as f32 * ratio).round() as i32).max(48);
+        let image = page
+            .render_with_config(
+                &PdfRenderConfig::new()
+                    .set_target_width(target_width)
+                    .set_maximum_height(target_height),
+            )
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?
+            .as_image()
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?
+            .into_rgb8();
+
+        let mut bytes = Vec::new();
+        JpegEncoder::new_with_quality(&mut bytes, quality)
+            .encode_image(&image)
+            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?;
+
+        pages.push(PdfPreviewPage {
+            page_number: index as u32 + 1,
+            width: image.width(),
+            height: image.height(),
+            data_url: format!(
+                "data:image/jpeg;base64,{}",
+                general_purpose::STANDARD.encode(bytes)
+            ),
+        });
+    }
+
+    Ok(PdfPreview { page_count, pages })
 }
 
 pub fn run_job_with_dependency_roots(
@@ -161,9 +221,7 @@ fn resolve_output_path(request: &JobRequest) -> Result<PathBuf, PdfToolError> {
         return Ok(output.clone());
     }
 
-    let base = env::temp_dir()
-        .join("pidef")
-        .join(request.id.to_string());
+    let base = env::temp_dir().join("pidef").join(request.id.to_string());
     fs::create_dir_all(&base)?;
 
     let output = match &request.operation {
@@ -311,15 +369,7 @@ fn run_pdf_to_jpg(
     let output_dir = output_path(request)?;
     fs::create_dir_all(output_dir)?;
 
-    let pdfium_path = deps
-        .pdf_renderer
-        .path
-        .as_ref()
-        .ok_or_else(|| PdfToolError::MissingDependency("PDFium".to_string()))?;
-    let pdfium = Pdfium::new(
-        Pdfium::bind_to_library(pdfium_path)
-            .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?,
-    );
+    let pdfium = bind_pdfium(deps)?;
     let document = pdfium
         .load_pdf_from_file(input, None)
         .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?;
@@ -478,6 +528,20 @@ fn require(dependency: &crate::DependencyInfo) -> Result<(), PdfToolError> {
         Ok(())
     } else {
         Err(PdfToolError::MissingDependency(dependency.command.clone()))
+    }
+}
+
+fn bind_pdfium(deps: &DependencySet) -> Result<Pdfium, PdfToolError> {
+    let pdfium_path = deps
+        .pdf_renderer
+        .path
+        .as_ref()
+        .ok_or_else(|| PdfToolError::MissingDependency("PDFium".to_string()))?;
+
+    match Pdfium::bind_to_library(pdfium_path) {
+        Ok(bindings) => Ok(Pdfium::new(bindings)),
+        Err(PdfiumError::PdfiumLibraryBindingsAlreadyInitialized) => Ok(Pdfium::default()),
+        Err(error) => Err(PdfToolError::ConversionFailed(error.to_string())),
     }
 }
 

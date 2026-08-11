@@ -1,12 +1,13 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
+  ArrowRight,
   CheckCircle2,
   CircleAlert,
   Clock3,
   Download,
   FilePlus2,
-  FolderOpen,
+  Home,
   Info,
   Loader2,
   RefreshCw,
@@ -22,7 +23,7 @@ import { toolById, tools, type ToolDefinition, type ToolId } from "./tools";
 import type { DependencySet, JobResult, JobState, OperationOptions, PdfPreview } from "./types";
 
 type AppearanceMode = "system" | "light" | "dark";
-type AppView = ToolId | "history" | "settings";
+type AppView = ToolId | "home" | "history" | "settings";
 type HistoryEntryKind = "opened" | "saved";
 type HistoryEntry = {
   id: string;
@@ -68,7 +69,7 @@ const SHOW_ALL_PREVIEW_LIMIT = 65_535;
 
 export function App() {
   const [selectedToolId, setSelectedToolId] = useState<ToolId>("mergePdf");
-  const [activeView, setActiveView] = useState<AppView>("mergePdf");
+  const [activeView, setActiveView] = useState<AppView>("home");
   const [appearance, setAppearance] = useState<AppearanceMode>(() => {
     const stored = localStorage.getItem("appearance");
     return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
@@ -85,6 +86,7 @@ export function App() {
   const [organizeItems, setOrganizeItems] = useState<OrganizeItem[]>([]);
   const [draggedOrganizeId, setDraggedOrganizeId] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<string[]>(() => readJson(RECENT_FILES_KEY, []));
+  const [commandFiles, setCommandFiles] = useState<string[]>([]);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>(() =>
     readJson<HistoryEntry[]>(HISTORY_KEY, []).filter(
       (entry) => entry.kind === "opened" || entry.kind === "saved",
@@ -92,6 +94,7 @@ export function App() {
   );
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
   const [isAddFileMenuOpen, setIsAddFileMenuOpen] = useState(false);
+  const [hasAutoExpandedSidebar, setHasAutoExpandedSidebar] = useState(false);
 
   const selectedTool = toolById[selectedToolId];
   const selectedOption = operationOptions.find((option) => option.tool === selectedToolId);
@@ -105,6 +108,7 @@ export function App() {
 
   useEffect(() => {
     void refreshRuntime();
+    void invokeCommand("set_native_sidebar_collapsed", { collapsed: true });
   }, []);
 
   useEffect(() => {
@@ -121,14 +125,6 @@ export function App() {
     media.addEventListener("change", applyAppearance);
     return () => media.removeEventListener("change", applyAppearance);
   }, [appearance]);
-
-  useEffect(() => {
-    setForm(initialForm(selectedTool));
-    setPdfPreview(null);
-    setOrganizeItems([]);
-    setPreviewError(null);
-    setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
-  }, [selectedTool]);
 
   useEffect(() => {
     const input = selectedFiles[0];
@@ -192,18 +188,17 @@ export function App() {
   useEffect(() => {
     const handleNativeToolSelected = (event: Event) => {
       const tool = (event as CustomEvent<{ tool?: AppView }>).detail?.tool;
-      if (tool === "settings" || tool === "history") {
+      if (tool === "home" || tool === "settings" || tool === "history") {
         setActiveView(tool);
         return;
       }
       if (!tool || !toolById[tool]) return;
-      setActiveView(tool);
-      setSelectedToolId(tool);
+      activateTool(tool);
     };
 
     window.addEventListener("native-tool-selected", handleNativeToolSelected);
     return () => window.removeEventListener("native-tool-selected", handleNativeToolSelected);
-  }, []);
+  }, [activeView, hasAutoExpandedSidebar]);
 
   useEffect(() => {
     const handleNativeSidebarVisibility = (event: Event) => {
@@ -241,7 +236,7 @@ export function App() {
       });
 
     return () => unlisten?.();
-  }, [selectedToolId, form]);
+  }, [activeView, selectedToolId, form]);
 
   const dependencyList = useMemo(
     () =>
@@ -277,8 +272,59 @@ export function App() {
     applySelectedFiles(Array.isArray(picked) ? picked : [picked]);
   }
 
+  async function pickCommandCenterFiles() {
+    const picked = await open({
+      title: "Choose files for Pidef",
+      multiple: true,
+      filters: commandCenterFilters(),
+      fileAccessMode: "scoped",
+    });
+
+    if (!picked) return;
+    applyCommandCenterFiles(Array.isArray(picked) ? picked : [picked]);
+  }
+
+  function activateTool(toolId: ToolId, paths: string[] = []) {
+    if (activeView === "home" && !hasAutoExpandedSidebar) {
+      setHasAutoExpandedSidebar(true);
+      void invokeCommand("set_native_sidebar_collapsed", { collapsed: false });
+    }
+
+    const tool = toolById[toolId];
+    const nextForm = initialForm(tool);
+    if (paths.length > 0) {
+      if (tool.needsMultipleInputs) {
+        nextForm.inputs = paths.filter(unique);
+      } else {
+        nextForm.input = paths[0] ?? "";
+      }
+    }
+
+    setSelectedToolId(toolId);
+    setActiveView(toolId);
+    setForm(nextForm);
+    setPdfPreview(null);
+    setOrganizeItems([]);
+    setPreviewError(null);
+    setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
+    setIsAddFileMenuOpen(false);
+  }
+
+  function applyCommandCenterFiles(paths: string[]) {
+    if (paths.length === 0) return;
+    const nextFiles = paths.filter(unique);
+    rememberOpenedFiles(nextFiles, null);
+    setActiveView("home");
+    setCommandFiles(nextFiles);
+  }
+
   function applySelectedFiles(paths: string[]) {
     if (paths.length === 0) return;
+
+    if (activeView === "home" || activeView === "history" || activeView === "settings") {
+      applyCommandCenterFiles(paths);
+      return;
+    }
 
     rememberOpenedFiles(paths);
 
@@ -301,6 +347,10 @@ export function App() {
     } else {
       setForm((current) => ({ ...current, input: "" }));
     }
+  }
+
+  function removeCommandFile(path: string) {
+    setCommandFiles((current) => current.filter((input) => input !== path));
   }
 
   function rotateOrganizeItem(id: string) {
@@ -376,9 +426,7 @@ export function App() {
       if (!saved) {
         setJobs((current) =>
           current.map((job) =>
-            job.id === id
-              ? { ...job, message: "Generated. Use Save As to choose a location." }
-              : job,
+            job.id === id ? { ...job, message: "Ready to save." } : job,
           ),
         );
       }
@@ -447,9 +495,9 @@ export function App() {
     }
   }
 
-  function rememberOpenedFiles(paths: string[]) {
+  function rememberOpenedFiles(paths: string[], tool: ToolId | null = selectedToolId) {
     setRecentFiles((current) => [...paths, ...current].filter(unique).slice(0, 12));
-    addHistoryEntries(paths.map((path) => ({ kind: "opened", path, tool: selectedToolId })));
+    addHistoryEntries(paths.map((path) => ({ kind: "opened", path, tool })));
   }
 
   function addHistoryEntries(entries: Array<Omit<HistoryEntry, "id" | "createdAt">>) {
@@ -471,6 +519,7 @@ export function App() {
   const canRunSelectedTool =
     selectedToolId === "organizePdf" ? canRun && organizeItems.length > 0 : canRun;
   const isSettingsView = activeView === "settings";
+  const isHomeView = activeView === "home";
   const latestVisibleJob = jobs.find((job) => job.tool === selectedToolId) ?? jobs[0] ?? null;
 
   return (
@@ -484,6 +533,21 @@ export function App() {
         </div>
 
         <div className="tool-list">
+          <button
+            className={`tool-button ${isHomeView ? "selected" : ""}`}
+            onClick={() => setActiveView("home")}
+            type="button"
+          >
+            <span className="tool-icon">
+              <Home size={18} />
+            </span>
+            <span>
+              <strong>Home</strong>
+            </span>
+          </button>
+
+          <div className="tool-section-label">Tools</div>
+
           {tools.map((tool) => {
             const Icon = tool.icon;
             const option = operationOptions.find((item) => item.tool === tool.id);
@@ -492,10 +556,7 @@ export function App() {
               <button
                 key={tool.id}
                 className={`tool-button ${activeView === tool.id ? "selected" : ""}`}
-                onClick={() => {
-                  setSelectedToolId(tool.id);
-                  setActiveView(tool.id);
-                }}
+                onClick={() => activateTool(tool.id)}
                 type="button"
               >
                 <span className="tool-icon">
@@ -541,14 +602,18 @@ export function App() {
         <header className="topbar">
           <div data-tauri-drag-region>
             <h2>
-              {activeView === "history"
+              {isHomeView
+                ? "Pidef"
+                : activeView === "history"
                 ? "History"
                 : isSettingsView
                   ? "Settings"
                   : selectedTool.title}
             </h2>
             <p>
-              {activeView === "history"
+              {isHomeView
+                ? "Drop files, choose an action, and keep moving."
+                : activeView === "history"
                 ? "Recent work, opened files, and saved outputs."
                 : isSettingsView
                 ? "Appearance and runtime diagnostics."
@@ -560,12 +625,21 @@ export function App() {
           </button>
         </header>
 
-        {activeView === "history" ? (
+        {isHomeView ? (
+          <HomeView
+            dragging={isDraggingFiles}
+            files={commandFiles}
+            operationOptions={operationOptions}
+            recentFiles={recentFiles}
+            onOpenFile={(path) => applyCommandCenterFiles([path])}
+            onPickFiles={pickCommandCenterFiles}
+            onRemoveFile={removeCommandFile}
+            onSelectTool={(toolId) => activateTool(toolId, commandFiles)}
+          />
+        ) : activeView === "history" ? (
           <HistoryView
             entries={historyEntries}
-            jobs={jobs}
             onOpenFile={(path) => applySelectedFiles([path])}
-            onSaveJobOutput={(job) => void saveJobOutput(job)}
           />
         ) : isSettingsView ? (
           <SettingsView
@@ -663,11 +737,6 @@ export function App() {
 
               <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
 
-              <div className="notice">
-                <FolderOpen size={18} />
-                <span>Generated files stay temporary until you choose where to save them.</span>
-              </div>
-
               <button
                 className="run-button"
                 type="button"
@@ -677,7 +746,7 @@ export function App() {
                 <Download size={16} />
                 Save As...
               </button>
-              <CurrentJobStatus job={latestVisibleJob} onSaveJobOutput={saveJobOutput} />
+              <CurrentJobStatus job={latestVisibleJob} />
             </aside>
           </div>
         )}
@@ -759,6 +828,111 @@ function SettingsView({
   );
 }
 
+function HomeView({
+  dragging,
+  files,
+  operationOptions,
+  recentFiles,
+  onOpenFile,
+  onPickFiles,
+  onRemoveFile,
+  onSelectTool,
+}: {
+  dragging: boolean;
+  files: string[];
+  operationOptions: OperationOptions[];
+  recentFiles: string[];
+  onOpenFile: (path: string) => void;
+  onPickFiles: () => void;
+  onRemoveFile: (path: string) => void;
+  onSelectTool: (tool: ToolId) => void;
+}) {
+  const suggestions = commandCenterSuggestions(files);
+
+  return (
+    <section className="home-screen">
+      <section className={`home-drop-zone ${dragging ? "dragging" : ""}`}>
+        <button className="home-drop-action" onClick={onPickFiles} type="button">
+          <FilePlus2 size={28} />
+          <span>{files.length > 0 ? "Add or replace files" : "Drop files here or choose files"}</span>
+          <small>
+            {files.length > 0
+              ? `${files.length} ${files.length === 1 ? "file" : "files"} ready`
+              : "PDF, JPG, Word, and PowerPoint files are supported"}
+          </small>
+        </button>
+
+        {files.length > 0 ? (
+          <div className="selected-files">
+            {files.map((path) => (
+              <div className="selected-file" key={path}>
+                <span>{basename(path)}</span>
+                <small>{path}</small>
+                <button onClick={() => onRemoveFile(path)} title="Remove" type="button">
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="home-section">
+        <div className="home-section-heading">
+          <h3>{files.length > 0 ? "Suggested Actions" : "Start With"}</h3>
+          <span>{files.length > 0 ? "Based on selected files" : "Common PDF workflows"}</span>
+        </div>
+
+        <div className="home-action-grid">
+          {suggestions.map((toolId) => {
+            const tool = toolById[toolId];
+            const Icon = tool.icon;
+            const unavailableReason = operationOptions.find(
+              (option) => option.tool === toolId,
+            )?.unavailableReason;
+
+            return (
+              <button
+                className="home-action"
+                disabled={Boolean(unavailableReason)}
+                key={toolId}
+                onClick={() => onSelectTool(toolId)}
+                type="button"
+              >
+                <span className="tool-icon">
+                  <Icon size={18} />
+                </span>
+                <span>
+                  <strong>{tool.title}</strong>
+                  <small>{unavailableReason ? "Needs setup" : tool.description}</small>
+                </span>
+                <ArrowRight size={17} />
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {recentFiles.length > 0 ? (
+        <section className="home-section">
+          <div className="home-section-heading">
+            <h3>Recent Files</h3>
+            <span>Open one in the Command Center</span>
+          </div>
+          <div className="recent-list">
+            {recentFiles.slice(0, 8).map((path) => (
+              <button className="recent-file" key={path} onClick={() => onOpenFile(path)} type="button">
+                <strong>{basename(path)}</strong>
+                <small>{path}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
 function FileDropZone({
   dragging,
   files,
@@ -801,69 +975,29 @@ function FileDropZone({
 
 function HistoryView({
   entries,
-  jobs,
   onOpenFile,
-  onSaveJobOutput,
 }: {
   entries: HistoryEntry[];
-  jobs: JobState[];
   onOpenFile: (path: string) => void;
-  onSaveJobOutput: (job: JobState) => void;
 }) {
   return (
-    <div className="history-grid">
-      <section className="history-panel">
-        <div className="panel-heading">
-          <h3>Activity</h3>
-        </div>
-        <div className="history-list">
-          {entries.length === 0 ? <p className="empty">No recent activity yet</p> : null}
-          {entries.map((entry) => (
-            <button
-              className="history-row"
-              key={entry.id}
-              onClick={() => onOpenFile(entry.path)}
-              type="button"
-            >
-              <span>{historyLabel(entry)}</span>
-              <strong>{basename(entry.path)}</strong>
-              <small>{entry.path}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="history-panel">
-        <div className="panel-heading">
-          <h3>Jobs</h3>
-        </div>
-        <div className="jobs">
-          {jobs.length === 0 ? <p className="empty">No jobs yet</p> : null}
-          {jobs.map((job) => (
-            <div className={`job ${job.status}`} key={job.id}>
-              <div>
-                <strong>{job.title}</strong>
-                <small>{job.message}</small>
-              </div>
-              {job.status === "running" ? <Loader2 className="spin" size={18} /> : null}
-              {job.result ? (
-                <>
-                  <p className="job-output-summary">
-                    {job.result.outputs.length === 1
-                      ? "1 output file is ready"
-                      : `${job.result.outputs.length} output files are ready`}
-                  </p>
-                  <button className="save-button" onClick={() => onSaveJobOutput(job)} type="button">
-                    <Download size={16} />
-                    Save As...
-                  </button>
-                </>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
+    <section className="history-feed" aria-label="Activity history">
+      {entries.length === 0 ? <p className="empty">No recent activity yet</p> : null}
+      <div className="history-list">
+        {entries.map((entry) => (
+          <button
+            className="history-row"
+            key={entry.id}
+            onClick={() => onOpenFile(entry.path)}
+            type="button"
+          >
+            <span>{historyLabel(entry)}</span>
+            <strong>{basename(entry.path)}</strong>
+            <small>{entry.path}</small>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -996,14 +1130,10 @@ function SelectedFileStage({ files }: { files: string[] }) {
   );
 }
 
-function CurrentJobStatus({
-  job,
-  onSaveJobOutput,
-}: {
+function CurrentJobStatus({ job }: {
   job: JobState | null;
-  onSaveJobOutput: (job: JobState) => Promise<boolean>;
 }) {
-  if (!job) return null;
+  if (!job || job.status === "complete") return null;
 
   return (
     <section className={`current-job ${job.status}`}>
@@ -1018,12 +1148,6 @@ function CurrentJobStatus({
             ? "1 output file is ready"
             : `${job.result.outputs.length} output files are ready`}
         </p>
-      ) : null}
-      {job.result ? (
-        <button className="save-button compact" onClick={() => void onSaveJobOutput(job)} type="button">
-          <Download size={15} />
-          Save As...
-        </button>
       ) : null}
     </section>
   );
@@ -1503,6 +1627,33 @@ function dialogFilters(tool: ToolId) {
   return [{ name: "PDF", extensions: ["pdf"] }];
 }
 
+function commandCenterFilters() {
+  return [
+    { name: "Supported Files", extensions: ["pdf", "jpg", "jpeg", "doc", "docx", "odt", "ppt", "pptx", "odp"] },
+    { name: "PDF", extensions: ["pdf"] },
+    { name: "Images", extensions: ["jpg", "jpeg"] },
+    { name: "Documents", extensions: ["doc", "docx", "odt"] },
+    { name: "Presentations", extensions: ["ppt", "pptx", "odp"] },
+  ];
+}
+
+function commandCenterSuggestions(files: string[]): ToolId[] {
+  if (files.length === 0) {
+    return ["mergePdf", "organizePdf", "splitPdf", "jpgToPdf"];
+  }
+
+  if (files.every(hasPdfExtension)) {
+    if (files.length > 1) return ["mergePdf", "organizePdf", "splitPdf", "pdfToJpg"];
+    return ["organizePdf", "splitPdf", "pdfToJpg", "protectPdf", "unlockPdf", "compressPdf"];
+  }
+
+  if (files.every(hasJpgExtension)) return ["jpgToPdf"];
+  if (files.length === 1 && hasPresentationExtension(files[0])) return ["pptToPdf"];
+  if (files.length === 1 && hasDocumentExtension(files[0])) return ["wordToPdf"];
+
+  return ["mergePdf", "jpgToPdf", "wordToPdf", "pptToPdf"];
+}
+
 function availabilityMessage(reason: string) {
   if (reason.toLowerCase().includes("planned")) return reason;
   return `${reason}. Install the required local engine, then refresh runtime.`;
@@ -1532,6 +1683,28 @@ function suggestedOutputName(tool: ToolId, source: string) {
 
 function basename(path: string) {
   return path.split(/[\\/]/).pop() || path;
+}
+
+function extension(path: string) {
+  const name = basename(path);
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index + 1).toLowerCase() : "";
+}
+
+function hasPdfExtension(path: string) {
+  return extension(path) === "pdf";
+}
+
+function hasJpgExtension(path: string) {
+  return ["jpg", "jpeg"].includes(extension(path));
+}
+
+function hasPresentationExtension(path: string) {
+  return ["ppt", "pptx", "odp"].includes(extension(path));
+}
+
+function hasDocumentExtension(path: string) {
+  return ["doc", "docx", "odt"].includes(extension(path));
 }
 
 function titleCase(value: string) {

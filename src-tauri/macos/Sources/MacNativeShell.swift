@@ -1,4 +1,5 @@
 import AppKit
+import ObjectiveC
 import SwiftUI
 import WebKit
 
@@ -9,6 +10,29 @@ public func installMacNativeShell(_ rawWindow: UnsafeMutableRawPointer?) {
   DispatchQueue.main.async {
     let window = unsafeBitCast(rawWindow, to: NSWindow.self)
     MacNativeShellInstaller.install(on: window)
+  }
+}
+
+@_cdecl("set_mac_native_sidebar_collapsed")
+public func setMacNativeSidebarCollapsed(_ rawWindow: UnsafeMutableRawPointer?, _ collapsedValue: Int32) {
+  guard let rawWindow else { return }
+  let isCollapsed = collapsedValue != 0
+
+  DispatchQueue.main.async {
+    let window = unsafeBitCast(rawWindow, to: NSWindow.self)
+    MacNativeShellRegistry.sidebarState(for: window)?.setCollapsed(isCollapsed)
+  }
+}
+
+private enum MacNativeShellRegistry {
+  private static var sidebarStateKey: UInt8 = 0
+
+  static func setSidebarState(_ state: MacSidebarState, for window: NSWindow) {
+    objc_setAssociatedObject(window, &sidebarStateKey, state, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+  }
+
+  static func sidebarState(for window: NSWindow) -> MacSidebarState? {
+    objc_getAssociatedObject(window, &sidebarStateKey) as? MacSidebarState
   }
 }
 
@@ -29,7 +53,8 @@ private enum MacNativeShellInstaller {
     prepareWebViewForNativeChrome(webView)
     markNativeShellReady(in: webView)
 
-    let sidebarState = MacSidebarState()
+    let sidebarState = MacSidebarState(isCollapsed: true)
+    MacNativeShellRegistry.setSidebarState(sidebarState, for: window)
     let sidebarContent = NSHostingView(
       rootView: MacNativeSidebar(sidebarState: sidebarState) { toolID in
         selectTool(toolID, in: webView)
@@ -43,7 +68,11 @@ private enum MacNativeShellInstaller {
     sidebar.identifier = sidebarIdentifier
     sidebar.translatesAutoresizingMaskIntoConstraints = false
 
-    let floatingToggle = NSHostingView(rootView: MacSidebarFloatingToggle(sidebarState: sidebarState))
+    let floatingToggle = NSHostingView(
+      rootView: MacSidebarFloatingControls(sidebarState: sidebarState) {
+        selectTool(MacTool.home.id, in: webView)
+      }
+    )
     floatingToggle.identifier = toggleIdentifier
     floatingToggle.translatesAutoresizingMaskIntoConstraints = false
     floatingToggle.wantsLayer = true
@@ -52,7 +81,10 @@ private enum MacNativeShellInstaller {
 
     contentView.addSubview(sidebar, positioned: .above, relativeTo: nil)
     contentView.addSubview(floatingToggle, positioned: .above, relativeTo: sidebar)
-    let sidebarWidthConstraint = sidebar.widthAnchor.constraint(equalToConstant: sidebarWidth)
+    let sidebarWidthConstraint = sidebar.widthAnchor.constraint(equalToConstant: 0)
+    sidebar.alphaValue = 0
+    sidebar.isHidden = true
+    floatingToggle.alphaValue = 1
     NSLayoutConstraint.activate([
       sidebar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
       sidebar.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -60,7 +92,7 @@ private enum MacNativeShellInstaller {
       sidebarWidthConstraint,
       floatingToggle.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: collapsedToggleLeading),
       floatingToggle.topAnchor.constraint(equalTo: contentView.topAnchor, constant: collapsedToggleTop),
-      floatingToggle.widthAnchor.constraint(equalToConstant: 30),
+      floatingToggle.widthAnchor.constraint(equalToConstant: 66),
       floatingToggle.heightAnchor.constraint(equalToConstant: 30),
     ])
 
@@ -82,6 +114,7 @@ private enum MacNativeShellInstaller {
 
       setNativeSidebarCollapsed(isCollapsed, in: webView)
     }
+    setNativeSidebarCollapsed(true, in: webView)
   }
 
   private static func configureWindow(_ window: NSWindow) {
@@ -194,17 +227,26 @@ private enum MacNativeShellInstaller {
 }
 
 private final class MacSidebarState: ObservableObject {
-  @Published var isCollapsed = false
+  @Published var isCollapsed: Bool
   var onCollapsedChange: ((Bool) -> Void)?
 
-  func toggle() {
-    isCollapsed.toggle()
+  init(isCollapsed: Bool = false) {
+    self.isCollapsed = isCollapsed
+  }
+
+  func setCollapsed(_ collapsed: Bool) {
+    guard isCollapsed != collapsed else { return }
+    isCollapsed = collapsed
     onCollapsedChange?(isCollapsed)
+  }
+
+  func toggle() {
+    setCollapsed(!isCollapsed)
   }
 }
 
 private struct MacNativeSidebar: View {
-  @State private var selectedToolID = MacTool.all[0].id
+  @State private var selectedToolID = MacTool.home.id
   @State private var hoveredToolID: String?
   @ObservedObject var sidebarState: MacSidebarState
   let onSelect: (String) -> Void
@@ -223,7 +265,16 @@ private struct MacNativeSidebar: View {
         .padding(.bottom, 18)
 
       ScrollView(.vertical, showsIndicators: false) {
-        VStack(spacing: 5) {
+        VStack(alignment: .leading, spacing: 5) {
+          toolButton(.home)
+
+          Text("TOOLS")
+            .font(MacSidebarFont.section)
+            .foregroundStyle(Color.secondary.opacity(0.54))
+            .padding(.horizontal, 8)
+            .padding(.top, 12)
+            .padding(.bottom, 3)
+
           ForEach(MacTool.all) { tool in
             toolButton(tool)
           }
@@ -310,11 +361,38 @@ private final class SidebarDragView: NSView {
   }
 }
 
-private struct MacSidebarFloatingToggle: View {
+private struct MacSidebarFloatingControls: View {
   @ObservedObject var sidebarState: MacSidebarState
+  let onHome: () -> Void
 
   var body: some View {
-    MacSidebarToggleButton(sidebarState: sidebarState)
+    HStack(spacing: 6) {
+      MacSidebarToggleButton(sidebarState: sidebarState)
+      if sidebarState.isCollapsed {
+        MacSidebarHomeButton(onHome: onHome)
+      }
+    }
+  }
+}
+
+private struct MacSidebarHomeButton: View {
+  let onHome: () -> Void
+  @State private var isHovered = false
+
+  var body: some View {
+    Button {
+      onHome()
+    } label: {
+      Image(systemName: "house")
+        .font(.system(size: 14, weight: .regular, design: .default))
+        .foregroundStyle(Color.secondary.opacity(0.78))
+        .frame(width: 30, height: 30)
+        .contentShape(Rectangle())
+        .nativeSelectionSurface(isSelected: false, isHovered: isHovered)
+    }
+    .buttonStyle(.plain)
+    .help("Home")
+    .onHover { isHovered = $0 }
   }
 }
 
@@ -342,6 +420,7 @@ private struct MacSidebarToggleButton: View {
 private enum MacSidebarFont {
   static let brand: Font = .system(size: 19, weight: .semibold, design: .default)
   static let item: Font = .system(size: 14, weight: .regular, design: .default)
+  static let section: Font = .system(size: 11, weight: .semibold, design: .default)
   static let icon: Font = .system(size: 14, weight: .regular, design: .default)
 }
 
@@ -349,6 +428,8 @@ private struct MacTool: Identifiable {
   let id: String
   let title: String
   let symbol: String
+
+  static let home = MacTool(id: "home", title: "Home", symbol: "house")
 
   static let all: [MacTool] = [
     .init(id: "mergePdf", title: "Merge PDF", symbol: "doc.on.doc"),

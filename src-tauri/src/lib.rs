@@ -74,6 +74,11 @@ fn set_appearance(app: AppHandle, appearance: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn set_native_sidebar_collapsed(app: AppHandle, collapsed: bool) -> Result<(), String> {
+    macos_native_shell::set_sidebar_collapsed(&app, collapsed)
+}
+
 fn copy_dir_all(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {
@@ -165,7 +170,8 @@ pub fn run() {
             execute_job,
             get_pdf_preview,
             save_output,
-            set_appearance
+            set_appearance,
+            set_native_sidebar_collapsed
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pidef");

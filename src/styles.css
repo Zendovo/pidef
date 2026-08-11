@@ -131,6 +131,16 @@ button {
   gap: 5px;
 }
 
+.tool-section-label {
+  color: #7b8794;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin-top: 10px;
+  padding: 6px 8px 2px;
+  text-transform: uppercase;
+}
+
 .settings-button {
   margin-top: 10px;
 }
@@ -297,7 +307,6 @@ body[data-native-shell="macos"] .workspace {
 .tool-panel,
 .status-panel,
 .options-panel,
-.history-panel,
 .recent-panel {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.52)),
@@ -318,7 +327,6 @@ body[data-native-shell="macos"] .workspace {
 
 .status-panel,
 .options-panel,
-.history-panel,
 .recent-panel {
   display: grid;
   gap: 14px;
@@ -334,7 +342,6 @@ body[data-native-shell="macos"] .workspace {
 
 .status-panel h3,
 .options-panel h3,
-.history-panel h3,
 .recent-panel h3 {
   color: #263242;
   font-size: 15px;
@@ -576,6 +583,128 @@ textarea:focus {
   font-size: 12px;
 }
 
+.home-screen {
+  display: grid;
+  gap: 18px;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 2px 28px;
+}
+
+.home-drop-zone {
+  border: 1px dashed rgba(110, 129, 151, 0.5);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.home-drop-zone.dragging {
+  background: rgba(231, 242, 255, 0.76);
+  border-color: rgba(21, 115, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(21, 115, 255, 0.16);
+}
+
+.home-drop-action {
+  align-items: center;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(247, 250, 253, 0.62)),
+    rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 8px;
+  color: #172033;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-height: 178px;
+  padding: 24px;
+}
+
+.home-drop-action span {
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.home-drop-action small {
+  color: #667085;
+  font-size: 13px;
+}
+
+.home-section {
+  display: grid;
+  gap: 10px;
+}
+
+.home-section-heading {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+}
+
+.home-section-heading h3 {
+  color: #263242;
+  font-size: 15px;
+  margin: 0;
+}
+
+.home-section-heading span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.home-action-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-action {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  min-height: 74px;
+  padding: 11px;
+  text-align: left;
+}
+
+.home-action:hover {
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.home-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.home-action strong,
+.home-action small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-action strong {
+  font-size: 13px;
+}
+
+.home-action small {
+  color: #667085;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
 .recent-list,
 .history-list {
   display: grid;
@@ -620,11 +749,10 @@ textarea:focus {
   text-transform: uppercase;
 }
 
-.history-grid {
-  align-items: start;
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr) 360px;
+.history-feed {
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 2px 28px;
 }
 
 .preview-panel,
@@ -939,11 +1067,6 @@ textarea:focus {
   cursor: not-allowed;
 }
 
-.jobs {
-  display: grid;
-  gap: 8px;
-}
-
 .runtime-info {
   position: relative;
 }
@@ -1072,10 +1195,6 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
-.current-job .save-button {
-  grid-column: 1 / -1;
-}
-
 .job.complete {
   border-color: rgba(22, 163, 74, 0.32);
 }
@@ -1141,7 +1260,6 @@ textarea:focus {
   .tool-panel,
   .status-panel,
   .options-panel,
-  .history-panel,
   .recent-panel,
   .runtime-popover {
     background:
@@ -1155,10 +1273,11 @@ textarea:focus {
   .topbar h2,
   .status-panel h3,
   .options-panel h3,
-  .history-panel h3,
   .recent-panel h3,
+  .home-section-heading h3,
   .tool-button.selected,
   .drop-action,
+  .home-drop-action,
   input,
   select,
   textarea,
@@ -1170,6 +1289,9 @@ textarea:focus {
   .topbar p,
   .tool-button small,
   .drop-action small,
+  .home-drop-action small,
+  .home-section-heading span,
+  .home-action small,
   .selected-file small,
   .job small,
   .empty,
@@ -1181,6 +1303,8 @@ textarea:focus {
   .tool-button.selected,
   .tool-icon,
   .drop-action,
+  .home-drop-action,
+  .home-action,
   .organize-card,
   .notice,
   input,
@@ -1229,7 +1353,8 @@ textarea:focus {
 
 .brand h1,
 .topbar h2,
-.status-panel h3 {
+.status-panel h3,
+.home-section-heading h3 {
   color: #f4f4f5;
 }
 
@@ -1237,6 +1362,9 @@ textarea:focus {
 .topbar p,
 .tool-button small,
 .drop-action small,
+.home-drop-action small,
+.home-section-heading span,
+.home-action small,
 .selected-file small,
 .job small,
 .empty,
@@ -1258,6 +1386,11 @@ textarea:focus {
 
 .tool-list {
   gap: 2px;
+}
+
+.tool-section-label {
+  color: #71717a;
+  margin-top: 10px;
 }
 
 .tool-button {
@@ -1302,7 +1435,6 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
 .tool-panel,
 .status-panel,
 .options-panel,
-.history-panel,
 .recent-panel,
 .runtime-popover {
   background:
@@ -1533,7 +1665,6 @@ textarea,
 :root[data-theme="light"] .tool-panel,
 :root[data-theme="light"] .status-panel,
 :root[data-theme="light"] .options-panel,
-:root[data-theme="light"] .history-panel,
 :root[data-theme="light"] .recent-panel,
 :root[data-theme="light"] .runtime-popover,
 :root[data-theme="light"] .settings-panel {
@@ -1551,8 +1682,8 @@ textarea,
 :root[data-theme="light"] .topbar h2,
 :root[data-theme="light"] .status-panel h3,
 :root[data-theme="light"] .options-panel h3,
-:root[data-theme="light"] .history-panel h3,
 :root[data-theme="light"] .recent-panel h3,
+:root[data-theme="light"] .home-section-heading h3,
 :root[data-theme="light"] .settings-heading h3,
 :root[data-theme="light"] .debug-block h4,
 :root[data-theme="light"] .debug-row span,
@@ -1564,6 +1695,9 @@ textarea,
 :root[data-theme="light"] .topbar p,
 :root[data-theme="light"] .tool-button small,
 :root[data-theme="light"] .drop-action small,
+:root[data-theme="light"] .home-drop-action small,
+:root[data-theme="light"] .home-section-heading span,
+:root[data-theme="light"] .home-action small,
 :root[data-theme="light"] .selected-file small,
 :root[data-theme="light"] .recent-file small,
 :root[data-theme="light"] .history-row small,
@@ -1580,8 +1714,15 @@ textarea,
   color: #71717a;
 }
 
+:root[data-theme="light"] .options-panel .field span,
+:root[data-theme="light"] .options-panel .toggle-row label {
+  color: #3f3f46;
+}
+
 :root[data-theme="light"] .brand-mark,
 :root[data-theme="light"] .tool-icon,
+:root[data-theme="light"] .home-drop-action,
+:root[data-theme="light"] .home-action,
 :root[data-theme="light"] input,
 :root[data-theme="light"] select,
 :root[data-theme="light"] textarea,
@@ -1616,7 +1757,7 @@ textarea,
 }
 
 :root[data-theme="light"] .file-menu button:hover {
-  background: rgba(39, 39, 42, 0.07);
+  background: rgba(39, 39, 42, 0.09);
 }
 
 :root[data-theme="light"] .preview-panel,
@@ -1638,7 +1779,20 @@ textarea,
 :root[data-theme="light"] .runtime-trigger:hover,
 :root[data-theme="light"] .save-button:hover,
 :root[data-theme="light"] .selected-file button:hover {
-  background: rgba(39, 39, 42, 0.055);
+  background: rgba(39, 39, 42, 0.09);
+  border-color: rgba(39, 39, 42, 0.18);
+  box-shadow: 0 8px 18px rgba(39, 39, 42, 0.08);
+}
+
+:root[data-theme="light"] .home-action:hover,
+:root[data-theme="light"] .drop-action:hover,
+:root[data-theme="light"] .home-drop-action:hover,
+:root[data-theme="light"] .recent-file:hover,
+:root[data-theme="light"] .history-row:hover,
+:root[data-theme="light"] .file-menu button:hover {
+  background: rgba(39, 39, 42, 0.085);
+  border-color: rgba(39, 39, 42, 0.18);
+  box-shadow: 0 8px 18px rgba(39, 39, 42, 0.07);
 }
 
 :root[data-theme="light"] .tool-button.selected,
@@ -1698,8 +1852,7 @@ textarea,
 
   .app-shell,
   .content-grid,
-  .workbench,
-  .history-grid {
+  .workbench {
     grid-template-columns: 1fr;
   }
 
@@ -1709,6 +1862,10 @@ textarea,
 
   .tool-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-action-grid {
+    grid-template-columns: 1fr;
   }
 
   .settings-grid {

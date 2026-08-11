@@ -1,32 +1,87 @@
 # Pidef
 
-A local-first desktop PDF utility built with Tauri, Vite, React, TypeScript, and Rust.
+Pidef is a local-first desktop PDF utility for macOS, Windows, and Linux. It is built to keep common document workflows on your machine: merge PDFs, split pages, organize pages visually, convert PDFs and images, and protect or unlock documents when you have the password.
 
-## V1 Features
+The app is built with Tauri, Vite, React, TypeScript, and Rust. The Rust operation layer is designed so a future CLI or MCP tool can reuse the same core PDF APIs.
 
-- Merge PDF
-- Split PDF
-- Organize PDF
-- Compress PDF
-- PDF to JPG
-- JPG to PDF
-- PPT to PDF
-- Word to PDF
-- Unlock PDF
-- Protect PDF
+> Development status: Pidef is actively in development. The current app is usable for early testing, but it still needs more polish, broader fixture testing, platform QA, and missing features. Compression is intentionally disabled for now while the in-house compression approach is researched. Office conversion is also treated as a later/optional workflow.
+
+## Screenshots
+
+### Command Center
+
+![Pidef command center in light mode](docs/screenshots/pidef-command-center-light.png)
+
+![Pidef command center in dark mode](docs/screenshots/pidef-command-center-dark.png)
+
+## What Pidef Does
+
+- Starts with a Command Center for dropping or choosing files.
+- Suggests the most relevant actions based on selected file types.
+- Shows PDF thumbnails and previews where they help the workflow.
+- Organizes PDFs with page thumbnails, reordering, rotate, delete, and duplicate actions.
+- Saves generated outputs through desktop Save As dialogs instead of forcing an output folder.
+- Keeps recent files and activity history local to the app.
+- Uses a native-feeling macOS shell with a collapsible sidebar.
+
+## Current Feature Status
+
+| Feature | Status |
+| --- | --- |
+| Merge PDF | Available through bundled/detected `qpdf` |
+| Split PDF | Available through bundled/detected `qpdf` |
+| Organize PDF | Available through bundled/detected `qpdf` |
+| PDF thumbnails and previews | Available through bundled/detected PDFium |
+| PDF to JPG | Available through bundled/detected PDFium |
+| JPG to PDF | Available through Rust image/PDF generation |
+| Unlock PDF | Available through bundled/detected `qpdf` |
+| Protect PDF | Available through bundled/detected `qpdf` |
+| Compress PDF | Planned, disabled in the UI |
+| Word to PDF | Later/optional, depends on LibreOffice |
+| PPT to PDF | Later/optional, depends on LibreOffice |
 
 ## Architecture
 
-The Tauri command layer is intentionally thin. Core operation models, validation, dependency detection, and conversion orchestration live in `crates/pdf_tool_core` so the same code can later be reused by a CLI or MCP server.
+Pidef is structured as a Tauri desktop shell over a reusable Rust core:
+
+- `src/`: React and TypeScript UI.
+- `src-tauri/`: Tauri commands, packaging, native shell integration, and bundled resources.
+- `crates/pdf_tool_core/`: shared operation models, validation, dependency detection, previews, and conversion orchestration.
+
+The Tauri command layer is intentionally thin. Core operation models, validation, dependency detection, and conversion orchestration live in `pdf_tool_core` so the same code can later back a CLI, MCP server, or other local automation surface.
+
+## Runtime Dependencies
+
+Pidef checks bundled resources first, then system paths.
+
+- Bundled/detected `qpdf` powers merge, split, organize, unlock, and protect.
+- Bundled/detected PDFium powers PDF previews and PDF-to-JPG rendering.
+- LibreOffice can power Word/PPT conversion, but that workflow is not a release blocker for the current app.
+- Ghostscript is not part of the current plan. Compression will be revisited separately.
 
 ## Local Development
 
-Install JavaScript dependencies, then run the app:
+Install JavaScript dependencies, then run the desktop app:
 
 ```sh
 npm install
 npm run tauri dev
 ```
+
+Run the frontend checks:
+
+```sh
+npm run build
+npm test
+```
+
+Run the Rust check:
+
+```sh
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+## Desktop Builds
 
 Build a standalone desktop app for your current platform:
 
@@ -34,15 +89,25 @@ Build a standalone desktop app for your current platform:
 npm run tauri build -- --bundles app
 ```
 
-On macOS, the app is written to `target/release/bundle/macos/Pidef.app`. A raw executable is also available at `target/release/pidef`.
+On macOS, the app bundle is written to:
 
-Open the `.app` bundle for normal desktop behavior:
+```sh
+target/release/bundle/macos/Pidef.app
+```
+
+Open the app bundle for normal desktop behavior:
 
 ```sh
 open "target/release/bundle/macos/Pidef.app"
 ```
 
-Running `target/release/pidef` directly launches it as a command-line executable, which can keep a terminal window attached.
+A raw executable is also available at:
+
+```sh
+target/release/pidef
+```
+
+Running the raw executable directly can keep a terminal window attached. Use the `.app` bundle for the intended desktop experience.
 
 To build platform installers/packages, run:
 
@@ -50,20 +115,13 @@ To build platform installers/packages, run:
 npm run tauri build
 ```
 
-That creates the platform's default bundles under `target/release/bundle`. On this machine, the app bundle build succeeds; the optional DMG wrapper may need a normal non-sandboxed macOS packaging environment.
+Bundles are created under `target/release/bundle`. On macOS, the app bundle build works in the normal development flow; the optional DMG wrapper may need a non-sandboxed packaging environment.
 
-Core PDF operations use bundled engines:
+## Roadmap
 
-- Bundled `qpdf` for merge, split, organize, unlock, and protect.
-- Bundled PDFium for PDF to JPG rendering.
-- `soffice` or `libreoffice` for Word/PPT to PDF.
-
-LibreOffice is optional. Word/PPT conversion is disabled in the UI when it is not detected.
-
-On macOS with Homebrew:
-
-```sh
-brew install libreoffice
-```
-
-The desktop app checks bundled resources first, then normal shell `PATH` plus common macOS locations such as `/opt/homebrew/bin`, `/usr/local/bin`, and `/Applications/LibreOffice.app/Contents/MacOS`.
+- Improve release readiness and platform QA across macOS, Windows, and Linux.
+- Finish compression research and add a local compression implementation.
+- Expand fixture coverage for every operation.
+- Polish organize/split previews and larger-document performance.
+- Revisit Word/PPT conversion after the core PDF workflows are stronger.
+- Add a future CLI/MCP layer over the shared Rust operation APIs.

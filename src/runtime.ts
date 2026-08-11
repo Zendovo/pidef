@@ -27,6 +27,10 @@ export async function invokeCommand<T>(command: string, args?: Record<string, un
     return undefined as T;
   }
 
+  if (command === "set_native_sidebar_collapsed") {
+    return undefined as T;
+  }
+
   if (command === "get_pdf_preview") {
     return previewPdfPreview() as T;
   }

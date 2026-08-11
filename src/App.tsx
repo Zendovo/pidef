@@ -17,7 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PointerEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, PointerEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { invokeCommand, isTauriRuntime } from "./runtime";
 import { toolById, tools, type ToolDefinition, type ToolId } from "./tools";
 import type { DependencySet, JobResult, JobState, OperationOptions, PdfPreview } from "./types";
@@ -94,7 +94,6 @@ export function App() {
   );
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
   const [isAddFileMenuOpen, setIsAddFileMenuOpen] = useState(false);
-  const [hasAutoExpandedSidebar, setHasAutoExpandedSidebar] = useState(false);
 
   const selectedTool = toolById[selectedToolId];
   const selectedOption = operationOptions.find((option) => option.tool === selectedToolId);
@@ -108,7 +107,6 @@ export function App() {
 
   useEffect(() => {
     void refreshRuntime();
-    void invokeCommand("set_native_sidebar_collapsed", { collapsed: true });
   }, []);
 
   useEffect(() => {
@@ -198,9 +196,16 @@ export function App() {
 
     window.addEventListener("native-tool-selected", handleNativeToolSelected);
     return () => window.removeEventListener("native-tool-selected", handleNativeToolSelected);
-  }, [activeView, hasAutoExpandedSidebar]);
+  }, [activeView]);
 
   useEffect(() => {
+    const syncNativeSidebarState = () => {
+      const nativeSidebar = document.body.dataset.nativeSidebar;
+      if (nativeSidebar === "collapsed" || nativeSidebar === "expanded") {
+        setIsNativeSidebarCollapsed(nativeSidebar === "collapsed");
+      }
+    };
+
     const handleNativeSidebarVisibility = (event: Event) => {
       const collapsed = Boolean(
         (event as CustomEvent<{ collapsed?: boolean }>).detail?.collapsed,
@@ -208,9 +213,13 @@ export function App() {
       setIsNativeSidebarCollapsed(collapsed);
     };
 
+    syncNativeSidebarState();
+    window.addEventListener("native-shell-ready", syncNativeSidebarState);
     window.addEventListener("native-sidebar-visibility", handleNativeSidebarVisibility);
-    return () =>
+    return () => {
+      window.removeEventListener("native-shell-ready", syncNativeSidebarState);
       window.removeEventListener("native-sidebar-visibility", handleNativeSidebarVisibility);
+    };
   }, []);
 
   useEffect(() => {
@@ -285,11 +294,6 @@ export function App() {
   }
 
   function activateTool(toolId: ToolId, paths: string[] = []) {
-    if (activeView === "home" && !hasAutoExpandedSidebar) {
-      setHasAutoExpandedSidebar(true);
-      void invokeCommand("set_native_sidebar_collapsed", { collapsed: false });
-    }
-
     const tool = toolById[toolId];
     const nextForm = initialForm(tool);
     if (paths.length > 0) {
@@ -650,7 +654,7 @@ export function App() {
             onRefreshRuntime={refreshRuntime}
           />
         ) : (
-          <div className="workbench">
+          <div className="workbench" style={{ "--tool-accent": selectedTool.accent } as CSSProperties}>
             <section className={hasSelectedFiles ? "preview-stage" : "empty-stage"}>
               {!hasSelectedFiles ? (
                 <>
@@ -897,6 +901,7 @@ function HomeView({
                 disabled={Boolean(unavailableReason)}
                 key={toolId}
                 onClick={() => onSelectTool(toolId)}
+                style={{ "--tool-accent": tool.accent } as CSSProperties}
                 type="button"
               >
                 <span className="tool-icon">
@@ -907,6 +912,7 @@ function HomeView({
                   <small>{unavailableReason ? "Needs setup" : tool.description}</small>
                 </span>
                 <ArrowRight size={17} />
+                <Icon className="home-action-watermark" size={82} strokeWidth={1.15} />
               </button>
             );
           })}

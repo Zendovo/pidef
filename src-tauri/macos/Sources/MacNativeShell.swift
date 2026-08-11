@@ -53,7 +53,7 @@ private enum MacNativeShellInstaller {
     prepareWebViewForNativeChrome(webView)
     markNativeShellReady(in: webView)
 
-    let sidebarState = MacSidebarState(isCollapsed: true)
+    let sidebarState = MacSidebarState()
     MacNativeShellRegistry.setSidebarState(sidebarState, for: window)
     let sidebarContent = NSHostingView(
       rootView: MacNativeSidebar(sidebarState: sidebarState) { toolID in
@@ -81,10 +81,7 @@ private enum MacNativeShellInstaller {
 
     contentView.addSubview(sidebar, positioned: .above, relativeTo: nil)
     contentView.addSubview(floatingToggle, positioned: .above, relativeTo: sidebar)
-    let sidebarWidthConstraint = sidebar.widthAnchor.constraint(equalToConstant: 0)
-    sidebar.alphaValue = 0
-    sidebar.isHidden = true
-    floatingToggle.alphaValue = 1
+    let sidebarWidthConstraint = sidebar.widthAnchor.constraint(equalToConstant: sidebarWidth)
     NSLayoutConstraint.activate([
       sidebar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
       sidebar.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -114,7 +111,7 @@ private enum MacNativeShellInstaller {
 
       setNativeSidebarCollapsed(isCollapsed, in: webView)
     }
-    setNativeSidebarCollapsed(true, in: webView)
+    setNativeSidebarCollapsed(false, in: webView)
   }
 
   private static func configureWindow(_ window: NSWindow) {
@@ -270,7 +267,7 @@ private struct MacNativeSidebar: View {
 
           Text("TOOLS")
             .font(MacSidebarFont.section)
-            .foregroundStyle(Color.secondary.opacity(0.54))
+            .foregroundStyle(Color.secondary.opacity(0.74))
             .padding(.horizontal, 8)
             .padding(.top, 12)
             .padding(.bottom, 3)
@@ -308,7 +305,8 @@ private struct MacNativeSidebar: View {
   private var brand: some View {
     Text("Pidef")
       .font(MacSidebarFont.brand)
-      .foregroundStyle(Color.primary.opacity(0.76))
+      .italic()
+      .foregroundStyle(Color.primary.opacity(0.9))
       .overlay(WindowDragRegion())
   }
 
@@ -320,13 +318,13 @@ private struct MacNativeSidebar: View {
       HStack(spacing: 10) {
         Image(systemName: tool.symbol)
           .font(MacSidebarFont.icon)
-          .foregroundStyle(Color.secondary.opacity(0.64))
+          .foregroundStyle(Color.secondary.opacity(0.82))
           .frame(width: 20, height: 20)
 
         VStack(alignment: .leading, spacing: 1) {
           Text(tool.title)
             .font(MacSidebarFont.item)
-            .foregroundStyle(Color.primary.opacity(0.74))
+            .foregroundStyle(Color.primary.opacity(0.88))
         }
 
         Spacer(minLength: 8)
@@ -385,7 +383,7 @@ private struct MacSidebarHomeButton: View {
     } label: {
       Image(systemName: "house")
         .font(.system(size: 14, weight: .regular, design: .default))
-        .foregroundStyle(Color.secondary.opacity(0.78))
+        .foregroundStyle(Color.secondary.opacity(0.86))
         .frame(width: 30, height: 30)
         .contentShape(Rectangle())
         .nativeSelectionSurface(isSelected: false, isHovered: isHovered)
@@ -406,7 +404,7 @@ private struct MacSidebarToggleButton: View {
     } label: {
       Image(systemName: "sidebar.left")
         .font(.system(size: 15, weight: .regular, design: .default))
-        .foregroundStyle(Color.secondary.opacity(0.78))
+        .foregroundStyle(Color.secondary.opacity(0.86))
         .frame(width: 30, height: 30)
         .contentShape(Rectangle())
         .nativeSelectionSurface(isSelected: false, isHovered: isHovered)
@@ -418,7 +416,7 @@ private struct MacSidebarToggleButton: View {
 }
 
 private enum MacSidebarFont {
-  static let brand: Font = .system(size: 19, weight: .semibold, design: .default)
+  static let brand: Font = .system(size: 19, weight: .regular, design: .serif)
   static let item: Font = .system(size: 14, weight: .regular, design: .default)
   static let section: Font = .system(size: 11, weight: .semibold, design: .default)
   static let icon: Font = .system(size: 14, weight: .regular, design: .default)

@@ -1,4 +1,5 @@
 :root {
+  --display-font: "New York", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   color: #1f2933;
   background:
     radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.96), transparent 30%),
@@ -10,6 +11,21 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+.brand h1,
+.topbar h2 {
+  font-family: var(--display-font);
+  font-style: italic;
+  letter-spacing: 0;
+}
+
+.brand h1 {
+  font-weight: 400;
+}
+
+.topbar h2 {
+  font-weight: 650;
 }
 
 * {
@@ -117,6 +133,7 @@ button {
 .brand h1 {
   color: #1e2a37;
   font-size: 17px;
+  font-weight: 400;
   letter-spacing: 0;
 }
 
@@ -260,6 +277,7 @@ body[data-native-shell="macos"] .workspace {
 .topbar h2 {
   color: #16202c;
   font-size: 25px;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -368,8 +386,8 @@ body[data-native-shell="macos"] .workspace {
 }
 
 .file-name-field {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   display: grid;
   gap: 3px;
@@ -377,7 +395,7 @@ body[data-native-shell="macos"] .workspace {
 }
 
 .file-name-field span {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 11px;
   font-weight: 650;
   text-transform: uppercase;
@@ -398,7 +416,7 @@ body[data-native-shell="macos"] .workspace {
   background:
     linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
     #27272a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
   display: grid;
@@ -440,7 +458,7 @@ body[data-native-shell="macos"] .workspace {
 }
 
 .file-menu small {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 11px;
 }
 
@@ -540,7 +558,7 @@ textarea:focus {
 }
 
 .drop-zone {
-  border: 1px dashed rgba(110, 129, 151, 0.48);
+  border: 1px dashed color-mix(in srgb, var(--tool-accent, #6e8197) 34%, rgba(110, 129, 151, 0.48));
   border-radius: 8px;
   display: grid;
   gap: 12px;
@@ -552,17 +570,22 @@ textarea:focus {
 }
 
 .drop-zone.dragging {
-  background: rgba(231, 242, 255, 0.76);
-  border-color: rgba(21, 115, 255, 0.72);
-  box-shadow: inset 0 0 0 1px rgba(21, 115, 255, 0.16);
+  background: color-mix(in srgb, var(--tool-accent, #1573ff) 16%, rgba(231, 242, 255, 0.76));
+  border-color: color-mix(in srgb, var(--tool-accent, #1573ff) 68%, rgba(21, 115, 255, 0.72));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tool-accent, #1573ff) 24%, transparent);
+}
+
+.drop-zone:hover {
+  background: color-mix(in srgb, var(--tool-accent, #1573ff) 8%, transparent);
+  border-color: color-mix(in srgb, var(--tool-accent, #1573ff) 54%, rgba(110, 129, 151, 0.48));
 }
 
 .drop-action {
   align-items: center;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(247, 250, 253, 0.58)),
+    linear-gradient(145deg, color-mix(in srgb, var(--tool-accent, #1573ff) 16%, rgba(255, 255, 255, 0.82)), rgba(247, 250, 253, 0.58)),
     rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.66);
+  border: 1px solid color-mix(in srgb, var(--tool-accent, #1573ff) 20%, rgba(255, 255, 255, 0.66));
   border-radius: 8px;
   color: #172033;
   cursor: pointer;
@@ -571,6 +594,13 @@ textarea:focus {
   justify-items: center;
   min-height: 126px;
   padding: 18px;
+}
+
+.drop-action:hover {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--tool-accent, #1573ff) 24%, rgba(255, 255, 255, 0.86)), rgba(247, 250, 253, 0.66)),
+    rgba(255, 255, 255, 0.68);
+  border-color: color-mix(in srgb, var(--tool-accent, #1573ff) 38%, rgba(255, 255, 255, 0.72));
 }
 
 .drop-action span {
@@ -665,26 +695,56 @@ textarea:focus {
 
 .home-action {
   align-items: center;
-  background: rgba(255, 255, 255, 0.46);
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 12%, transparent), transparent 42%),
+    rgba(255, 255, 255, 0.46);
+  border: 1px solid color-mix(in srgb, var(--tool-accent) 22%, rgba(255, 255, 255, 0.58));
   border-radius: 8px;
   color: inherit;
   cursor: pointer;
   display: grid;
   gap: 10px;
   grid-template-columns: 32px minmax(0, 1fr) auto;
+  isolation: isolate;
   min-height: 74px;
+  overflow: hidden;
   padding: 11px;
+  position: relative;
   text-align: left;
 }
 
 .home-action:hover {
-  background: rgba(255, 255, 255, 0.68);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 18%, transparent), transparent 46%),
+    rgba(255, 255, 255, 0.68);
+  border-color: color-mix(in srgb, var(--tool-accent) 36%, rgba(255, 255, 255, 0.66));
 }
 
 .home-action:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.home-action > :not(.home-action-watermark) {
+  position: relative;
+  z-index: 2;
+}
+
+.home-action .tool-icon {
+  background: color-mix(in srgb, var(--tool-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--tool-accent) 28%, transparent);
+  color: var(--tool-accent);
+}
+
+.home-action-watermark {
+  color: var(--tool-accent);
+  opacity: 0.1;
+  pointer-events: none;
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-8deg);
+  z-index: 0;
 }
 
 .home-action strong,
@@ -713,8 +773,8 @@ textarea:focus {
 
 .recent-file,
 .history-row {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   color: inherit;
   cursor: pointer;
@@ -735,7 +795,7 @@ textarea:focus {
 
 .recent-file small,
 .history-row small {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -743,7 +803,7 @@ textarea:focus {
 }
 
 .history-row span {
-  color: #d4d4d8;
+  color: #e1e7ef;
   font-size: 11px;
   font-weight: 650;
   text-transform: uppercase;
@@ -774,8 +834,8 @@ textarea:focus {
 
 .stage-file {
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   display: grid;
   gap: 10px;
@@ -785,7 +845,7 @@ textarea:focus {
 }
 
 .stage-file span {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 12px;
 }
 
@@ -801,7 +861,7 @@ textarea:focus {
 }
 
 .stage-file small {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 12px;
 }
 
@@ -819,7 +879,7 @@ textarea:focus {
 }
 
 .preview-heading span {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -870,14 +930,14 @@ textarea:focus {
 }
 
 .preview-thumb figcaption {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 12px;
   text-align: center;
 }
 
 .preview-loading {
   align-items: center;
-  color: #d4d4d8;
+  color: #e1e7ef;
   display: flex;
   gap: 9px;
   min-height: 44px;
@@ -891,8 +951,8 @@ textarea:focus {
 }
 
 .organize-card {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   cursor: grab;
   display: grid;
@@ -954,7 +1014,7 @@ textarea:focus {
 }
 
 .organize-card-footer small {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 11px;
 }
 
@@ -967,7 +1027,7 @@ textarea:focus {
 .organize-actions button {
   align-items: center;
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   color: #d8dde2;
   cursor: pointer;
@@ -1165,8 +1225,8 @@ textarea:focus {
 
 .current-job {
   align-items: center;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -1188,7 +1248,7 @@ textarea:focus {
 }
 
 .current-job small {
-  color: #a1a1aa;
+  color: #c1c7d0;
   display: block;
   font-size: 12px;
   margin-top: 2px;
@@ -1321,7 +1381,7 @@ textarea:focus {
 }
 
 .app-shell {
-  background: #18181b;
+  background: #17181c;
   color: #f4f4f5;
   grid-template-columns: 260px minmax(0, 1fr);
   transition: grid-template-columns 180ms ease;
@@ -1342,7 +1402,7 @@ textarea:focus {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
-  color: #d4d4d8;
+  color: #cbd5e1;
 }
 
 .brand {
@@ -1369,17 +1429,17 @@ textarea:focus {
 .job small,
 .empty,
 .dependency small {
-  color: #a1a1aa;
+  color: #c1c7d0;
 }
 
 .tool-button:hover {
-  background: rgba(255, 255, 255, 0.065);
-  border-color: transparent;
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .tool-button.selected {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: transparent;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.14);
   box-shadow: none;
   color: #ffffff;
 }
@@ -1389,7 +1449,7 @@ textarea:focus {
 }
 
 .tool-section-label {
-  color: #71717a;
+  color: #aeb6c2;
   margin-top: 10px;
 }
 
@@ -1407,6 +1467,7 @@ textarea:focus {
 }
 
 .tool-button strong {
+  color: #d8dee8;
   font-size: 14px;
   font-weight: 400;
 }
@@ -1417,7 +1478,7 @@ textarea:focus {
 
 body[data-native-shell="macos"] .workspace,
 .workspace {
-  background: #18181b;
+  background: #17181c;
 }
 
 body[data-native-shell="macos"] .workspace {
@@ -1429,7 +1490,7 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed {
 }
 
 body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
-  padding-left: 54px;
+  padding-left: 112px;
 }
 
 .tool-panel,
@@ -1438,9 +1499,9 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
 .recent-panel,
 .runtime-popover {
   background:
-    linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
-    #27272a;
-  border-color: rgba(255, 255, 255, 0.08);
+    linear-gradient(145deg, rgba(43, 43, 48, 0.98), rgba(29, 30, 35, 0.98)),
+    #2b2b30;
+  border-color: rgba(255, 255, 255, 0.14);
   box-shadow:
     0 18px 46px rgba(0, 0, 0, 0.2),
     inset 0 1px rgba(255, 255, 255, 0.06);
@@ -1453,7 +1514,7 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
 .selected-file button,
 .runtime-trigger,
 .save-button {
-  color: #d4d4d8;
+  color: #e1e7ef;
 }
 
 input,
@@ -1464,43 +1525,86 @@ textarea,
 .job,
 .runtime-trigger,
 .save-button {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.085);
+  border-color: rgba(255, 255, 255, 0.16);
   color: #f4f4f5;
 }
 
 .drop-zone {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: color-mix(in srgb, var(--tool-accent, #cbd5e1) 42%, rgba(203, 213, 225, 0.28));
 }
 
 .drop-zone.dragging {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.32);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--tool-accent, #cbd5e1) 18%, rgba(255, 255, 255, 0.09));
+  border-color: color-mix(in srgb, var(--tool-accent, #cbd5e1) 56%, rgba(255, 255, 255, 0.32));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tool-accent, #cbd5e1) 22%, transparent);
+}
+
+.drop-zone:hover {
+  background: color-mix(in srgb, var(--tool-accent, #cbd5e1) 13%, rgba(255, 255, 255, 0.04));
+  border-color: color-mix(in srgb, var(--tool-accent, #cbd5e1) 54%, rgba(255, 255, 255, 0.28));
 }
 
 .drop-action {
   background:
-    linear-gradient(145deg, rgba(55, 58, 64, 0.78), rgba(39, 41, 46, 0.78)),
-    rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+    linear-gradient(145deg, color-mix(in srgb, var(--tool-accent, #cbd5e1) 20%, rgba(62, 65, 72, 0.86)), rgba(43, 45, 52, 0.86)),
+    rgba(255, 255, 255, 0.09);
+  border-color: color-mix(in srgb, var(--tool-accent, #cbd5e1) 36%, rgba(255, 255, 255, 0.18));
   color: #f2f4f6;
+}
+
+.drop-action:hover {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--tool-accent, #cbd5e1) 30%, rgba(62, 65, 72, 0.9)), rgba(43, 45, 52, 0.9)),
+    rgba(255, 255, 255, 0.14);
+  border-color: color-mix(in srgb, var(--tool-accent, #cbd5e1) 48%, rgba(255, 255, 255, 0.24));
+}
+
+.home-drop-action {
+  background:
+    linear-gradient(145deg, rgba(62, 65, 72, 0.86), rgba(43, 45, 52, 0.86)),
+    rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #f2f4f6;
+}
+
+.home-action {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 18%, transparent), transparent 48%),
+    rgba(255, 255, 255, 0.085);
+  border-color: color-mix(in srgb, var(--tool-accent) 34%, rgba(255, 255, 255, 0.16));
+}
+
+.home-drop-action:hover,
+.home-action:hover,
+.recent-file:hover,
+.history-row:hover,
+.file-menu button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.home-action:hover {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 26%, transparent), transparent 52%),
+    rgba(255, 255, 255, 0.15);
+  border-color: color-mix(in srgb, var(--tool-accent) 46%, rgba(255, 255, 255, 0.22));
 }
 
 .icon-button,
 .runtime-trigger,
 .save-button,
 .selected-file button {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #d8dde2;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #e1e7ef;
 }
 
 .icon-button:hover,
 .runtime-trigger:hover,
 .save-button:hover,
 .selected-file button:hover {
-  background: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .run-button {
@@ -1571,7 +1675,7 @@ textarea,
   background: transparent;
   border: 0;
   border-radius: 6px;
-  color: #aeb5bc;
+  color: #d1d5db;
   cursor: pointer;
   min-height: 32px;
 }
@@ -1596,7 +1700,7 @@ textarea,
 
 .debug-row {
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.075);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   display: grid;
@@ -1614,13 +1718,13 @@ textarea,
 }
 
 .debug-row strong {
-  color: #d4d4d8;
+  color: #e1e7ef;
   font-size: 12px;
   font-weight: 600;
 }
 
 .debug-row code {
-  color: #a1a1aa;
+  color: #c1c7d0;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1633,7 +1737,7 @@ textarea,
 }
 
 .debug-block p {
-  color: #a1a1aa;
+  color: #c1c7d0;
   display: grid;
   gap: 3px;
   margin: 0;
@@ -1693,6 +1797,7 @@ textarea,
 
 :root[data-theme="light"] .brand p,
 :root[data-theme="light"] .topbar p,
+:root[data-theme="light"] .tool-section-label,
 :root[data-theme="light"] .tool-button small,
 :root[data-theme="light"] .drop-action small,
 :root[data-theme="light"] .home-drop-action small,
@@ -1711,12 +1816,12 @@ textarea,
 :root[data-theme="light"] .dependency small,
 :root[data-theme="light"] .debug-row code,
 :root[data-theme="light"] .debug-block p {
-  color: #71717a;
+  color: #52525b;
 }
 
 :root[data-theme="light"] .options-panel .field span,
 :root[data-theme="light"] .options-panel .toggle-row label {
-  color: #3f3f46;
+  color: #27272a;
 }
 
 :root[data-theme="light"] .brand-mark,
@@ -1740,8 +1845,8 @@ textarea,
 :root[data-theme="light"] .icon-button,
 :root[data-theme="light"] .debug-row,
 :root[data-theme="light"] .segmented-control {
-  background: rgba(39, 39, 42, 0.04);
-  border-color: rgba(39, 39, 42, 0.1);
+  background: rgba(39, 39, 42, 0.055);
+  border-color: rgba(39, 39, 42, 0.16);
   color: #27272a;
 }
 
@@ -1749,7 +1854,7 @@ textarea,
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 244, 245, 0.98)),
     #ffffff;
-  border-color: rgba(39, 39, 42, 0.1);
+  border-color: rgba(39, 39, 42, 0.16);
 }
 
 :root[data-theme="light"] .file-menu button {
@@ -1757,7 +1862,7 @@ textarea,
 }
 
 :root[data-theme="light"] .file-menu button:hover {
-  background: rgba(39, 39, 42, 0.09);
+  background: rgba(39, 39, 42, 0.11);
 }
 
 :root[data-theme="light"] .preview-panel,
@@ -1779,20 +1884,52 @@ textarea,
 :root[data-theme="light"] .runtime-trigger:hover,
 :root[data-theme="light"] .save-button:hover,
 :root[data-theme="light"] .selected-file button:hover {
-  background: rgba(39, 39, 42, 0.09);
-  border-color: rgba(39, 39, 42, 0.18);
+  background: rgba(39, 39, 42, 0.11);
+  border-color: rgba(39, 39, 42, 0.24);
   box-shadow: 0 8px 18px rgba(39, 39, 42, 0.08);
 }
 
 :root[data-theme="light"] .home-action:hover,
-:root[data-theme="light"] .drop-action:hover,
 :root[data-theme="light"] .home-drop-action:hover,
 :root[data-theme="light"] .recent-file:hover,
 :root[data-theme="light"] .history-row:hover,
 :root[data-theme="light"] .file-menu button:hover {
-  background: rgba(39, 39, 42, 0.085);
-  border-color: rgba(39, 39, 42, 0.18);
+  background: rgba(39, 39, 42, 0.105);
+  border-color: rgba(39, 39, 42, 0.24);
   box-shadow: 0 8px 18px rgba(39, 39, 42, 0.07);
+}
+
+:root[data-theme="light"] .drop-zone:hover {
+  background: color-mix(in srgb, var(--tool-accent, #1573ff) 9%, transparent);
+  border-color: color-mix(in srgb, var(--tool-accent, #1573ff) 58%, rgba(39, 39, 42, 0.14));
+}
+
+:root[data-theme="light"] .drop-action:hover {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--tool-accent, #1573ff) 24%, rgba(255, 255, 255, 0.9)), rgba(244, 244, 245, 0.72)),
+    rgba(39, 39, 42, 0.05);
+  border-color: color-mix(in srgb, var(--tool-accent, #1573ff) 42%, rgba(39, 39, 42, 0.16));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--tool-accent, #1573ff) 16%, rgba(39, 39, 42, 0.06));
+}
+
+:root[data-theme="light"] .home-action {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 14%, transparent), transparent 46%),
+    rgba(39, 39, 42, 0.055);
+  border-color: color-mix(in srgb, var(--tool-accent) 30%, rgba(39, 39, 42, 0.16));
+}
+
+:root[data-theme="light"] .home-action:hover {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 22%, transparent), transparent 50%),
+    rgba(39, 39, 42, 0.105);
+  border-color: color-mix(in srgb, var(--tool-accent) 44%, rgba(39, 39, 42, 0.24));
+}
+
+:root[data-theme="light"] .home-action .tool-icon {
+  background: color-mix(in srgb, var(--tool-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--tool-accent) 28%, transparent);
+  color: var(--tool-accent);
 }
 
 :root[data-theme="light"] .tool-button.selected,
@@ -1804,8 +1941,8 @@ textarea,
 }
 
 :root[data-theme="light"] .drop-action {
-  background: rgba(39, 39, 42, 0.04);
-  border-color: rgba(39, 39, 42, 0.1);
+  background: rgba(39, 39, 42, 0.055);
+  border-color: rgba(39, 39, 42, 0.16);
   color: #27272a;
 }
 
@@ -1832,17 +1969,17 @@ textarea,
 :root[data-theme="light"] .preview-thumb figcaption,
 :root[data-theme="light"] .preview-loading,
 :root[data-theme="light"] .organize-card-footer small {
-  color: #71717a;
+  color: #52525b;
 }
 
 :root[data-theme="light"] .organize-actions button {
-  background: rgba(39, 39, 42, 0.04);
-  border-color: rgba(39, 39, 42, 0.1);
-  color: #3f3f46;
+  background: rgba(39, 39, 42, 0.055);
+  border-color: rgba(39, 39, 42, 0.16);
+  color: #27272a;
 }
 
 :root[data-theme="light"] .organize-actions button:hover {
-  background: rgba(39, 39, 42, 0.08);
+  background: rgba(39, 39, 42, 0.11);
 }
 
 @media (max-width: 980px) {

@@ -35,6 +35,10 @@ export async function invokeCommand<T>(command: string, args?: Record<string, un
     return previewPdfPreview() as T;
   }
 
+  if (command === "get_file_size") {
+    return 2_400_000 as T;
+  }
+
   throw new Error(`${command} is available in the Tauri desktop runtime`);
 }
 

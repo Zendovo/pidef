@@ -817,6 +817,8 @@ textarea:focus {
 
 .preview-panel,
 .organize-panel,
+.merge-board,
+.split-groups-board,
 .selected-stage {
   background: transparent;
   border: 0;
@@ -1016,6 +1018,287 @@ textarea:focus {
 .organize-card-footer small {
   color: #c1c7d0;
   font-size: 11px;
+}
+
+.order-badge {
+  align-items: center;
+  backdrop-filter: blur(6px);
+  background: rgba(15, 15, 20, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 22px;
+  justify-content: center;
+  left: 6px;
+  opacity: 0.88;
+  pointer-events: none;
+  position: absolute;
+  top: 6px;
+  width: 22px;
+  z-index: 2;
+}
+
+.organize-thumb,
+.merge-thumb {
+  position: relative;
+}
+
+.merge-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  padding: 2px;
+}
+
+.merge-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  cursor: grab;
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px;
+  touch-action: none;
+  user-select: none;
+}
+
+.merge-card:active {
+  cursor: grabbing;
+}
+
+.merge-card.dragging {
+  opacity: 0.45;
+  outline: 2px solid rgba(255, 255, 255, 0.22);
+}
+
+.merge-thumb {
+  align-items: center;
+  aspect-ratio: 0.72;
+  display: grid;
+  justify-items: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.merge-thumb img {
+  display: block;
+  max-height: 88%;
+  max-width: 88%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.merge-card-footer {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  min-height: 18px;
+  min-width: 0;
+}
+
+.merge-card-footer span {
+  color: #f2f4f6;
+  font-size: 12px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merge-card-footer button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #c1c7d0;
+  cursor: pointer;
+  display: grid;
+  padding: 3px;
+  place-items: center;
+}
+
+.merge-card-footer button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.hue-violet {
+  --group-hue: 139 92 246;
+}
+
+.hue-blue {
+  --group-hue: 59 130 246;
+}
+
+.hue-teal {
+  --group-hue: 20 184 166;
+}
+
+.hue-amber {
+  --group-hue: 217 119 6;
+}
+
+.hue-pink {
+  --group-hue: 236 72 153;
+}
+
+.hue-green {
+  --group-hue: 22 163 74;
+}
+
+.thumb-group-badge {
+  align-items: center;
+  background: rgb(var(--group-hue) / 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 20px;
+  justify-content: center;
+  left: 6px;
+  position: absolute;
+  top: 6px;
+  width: 20px;
+  z-index: 2;
+}
+
+.split-groups-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  padding: 2px;
+}
+
+.split-group-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgb(var(--group-hue) / 0.4);
+  border-left: 3px solid rgb(var(--group-hue) / 0.85);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.split-group-card header {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  min-width: 0;
+}
+
+.split-group-number {
+  align-items: center;
+  background: rgb(var(--group-hue) / 0.92);
+  border-radius: 999px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.split-group-card header strong {
+  color: #f2f4f6;
+  display: block;
+  font-size: 13px;
+}
+
+.split-group-card header small {
+  color: #c1c7d0;
+  display: block;
+  font-size: 11px;
+}
+
+.split-group-pages {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.split-group-pages figure {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  width: 44px;
+}
+
+.split-group-pages img {
+  aspect-ratio: 0.72;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: block;
+  object-fit: contain;
+  width: 100%;
+}
+
+.split-page-fallback {
+  align-items: center;
+  aspect-ratio: 0.72;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  border-radius: 4px;
+  color: #c1c7d0;
+  display: grid;
+  font-size: 11px;
+  justify-items: center;
+}
+
+.split-group-pages figcaption {
+  color: #c1c7d0;
+  font-size: 10px;
+  text-align: center;
+}
+
+.split-group-more {
+  align-self: center;
+  color: #c1c7d0;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.source-size-note {
+  align-items: baseline;
+  color: #c1c7d0;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.source-size-note strong {
+  color: #f2f4f6;
+  font-size: 15px;
+}
+
+.source-size-note span {
+  font-size: 12px;
+}
+
+.job-size-summary {
+  color: #f2f4f6;
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  margin-top: 4px;
+}
+
+.current-job .ok {
+  color: rgb(34 197 94);
 }
 
 .organize-actions {
@@ -1878,10 +2161,71 @@ textarea,
 
 :root[data-theme="light"] .preview-panel,
 :root[data-theme="light"] .organize-panel,
+:root[data-theme="light"] .merge-board,
+:root[data-theme="light"] .split-groups-board,
 :root[data-theme="light"] .selected-stage {
   background: transparent;
   border-color: transparent;
   color: #27272a;
+}
+
+:root[data-theme="light"] .order-badge {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(39, 39, 42, 0.28);
+  box-shadow: 0 4px 12px rgba(39, 39, 42, 0.18);
+  color: #18181b;
+}
+
+:root[data-theme="light"] .merge-card {
+  background: rgba(39, 39, 42, 0.045);
+  border-color: rgba(39, 39, 42, 0.16);
+}
+
+:root[data-theme="light"] .merge-card.dragging {
+  outline-color: rgba(39, 39, 42, 0.28);
+}
+
+:root[data-theme="light"] .merge-card-footer span {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .merge-card-footer button {
+  color: #52525b;
+}
+
+:root[data-theme="light"] .merge-card-footer button:hover {
+  background: rgba(39, 39, 42, 0.1);
+  color: #18181b;
+}
+
+:root[data-theme="light"] .thumb-group-badge,
+:root[data-theme="light"] .split-group-number {
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 3px 10px rgba(39, 39, 42, 0.22);
+}
+
+:root[data-theme="light"] .split-group-card {
+  background: rgba(39, 39, 42, 0.045);
+  border-color: rgb(var(--group-hue) / 0.38);
+}
+
+:root[data-theme="light"] .split-group-card header strong,
+:root[data-theme="light"] .job-size-summary,
+:root[data-theme="light"] .source-size-note strong {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .split-group-card header small,
+:root[data-theme="light"] .split-group-pages figcaption,
+:root[data-theme="light"] .split-group-more,
+:root[data-theme="light"] .source-size-note {
+  color: #52525b;
+}
+
+:root[data-theme="light"] .split-page-fallback {
+  background: rgba(39, 39, 42, 0.06);
+  border-color: rgba(39, 39, 42, 0.22);
+  color: #52525b;
 }
 
 :root[data-theme="light"] .brand-mark,

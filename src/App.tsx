@@ -8,6 +8,7 @@ import {
   Clock3,
   Download,
   FilePlus2,
+  Files,
   Home,
   Info,
   Loader2,
@@ -39,6 +40,10 @@ type OrganizeItem = {
   sourcePage: number;
   rotateDegrees: number;
   thumbnail: string;
+};
+type SplitGroup = {
+  label: string;
+  pages: number[];
 };
 
 type FormState = Omit<ToolDefinition["defaults"], "input" | "inputs"> & {
@@ -96,6 +101,9 @@ export function App() {
   );
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
   const [isAddFileMenuOpen, setIsAddFileMenuOpen] = useState(false);
+  const [mergePreviews, setMergePreviews] = useState<Record<string, string>>({});
+  const [draggedMergePath, setDraggedMergePath] = useState<string | null>(null);
+  const [sourceFileSize, setSourceFileSize] = useState<number | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>({
     status: "idle",
@@ -188,6 +196,61 @@ export function App() {
       isCancelled = true;
     };
   }, [selectedToolId, selectedFiles.join("|"), previewVisibleCount]);
+
+  useEffect(() => {
+    if (selectedToolId !== "mergePdf" || form.inputs.length === 0) {
+      setMergePreviews({});
+      return;
+    }
+
+    let isCancelled = false;
+    for (const input of form.inputs) {
+      setMergePreviews((current) => (input in current ? current : { ...current, [input]: "" }));
+      void invokeCommand<PdfPreview>("get_pdf_preview", {
+        request: { input, maxPages: 1, width: 180, quality: 74 },
+      })
+        .then((preview) => {
+          if (isCancelled) return;
+          const thumbnail = preview.pages[0]?.dataUrl;
+          if (thumbnail) {
+            setMergePreviews((current) => ({ ...current, [input]: thumbnail }));
+          }
+        })
+        .catch(() => {
+          if (!isCancelled) {
+            setMergePreviews((current) => {
+              const next = { ...current };
+              delete next[input];
+              return next;
+            });
+          }
+        });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedToolId, form.inputs.join("|")]);
+
+  useEffect(() => {
+    if (selectedToolId !== "compressPdf" || !form.input) {
+      setSourceFileSize(null);
+      return;
+    }
+
+    let isCancelled = false;
+    void invokeCommand<number>("get_file_size", { path: form.input })
+      .then((size) => {
+        if (!isCancelled) setSourceFileSize(size);
+      })
+      .catch(() => {
+        if (!isCancelled) setSourceFileSize(null);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedToolId, form.input]);
 
   useEffect(() => {
     localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(recentFiles.slice(0, 12)));
@@ -400,6 +463,19 @@ export function App() {
     });
   }
 
+  function moveMergeItem(sourcePath: string, targetPath: string) {
+    if (sourcePath === targetPath) return;
+    setForm((current) => {
+      const sourceIndex = current.inputs.indexOf(sourcePath);
+      const targetIndex = current.inputs.indexOf(targetPath);
+      if (sourceIndex < 0 || targetIndex < 0) return current;
+      const inputs = [...current.inputs];
+      const [moved] = inputs.splice(sourceIndex, 1);
+      inputs.splice(targetIndex, 0, moved);
+      return { ...current, inputs };
+    });
+  }
+
   async function runSelectedJob() {
     if (!canRunSelectedTool) return;
 
@@ -411,7 +487,10 @@ export function App() {
       tool: selectedToolId,
       title: selectedTool.title,
       status: "running",
-      message: "Generating to a temporary location",
+      message:
+        selectedToolId === "compressPdf"
+          ? "Compressing PDF…"
+          : "Generating to a temporary location",
     };
     setJobs((current) => [newJob, ...current]);
 
@@ -430,6 +509,11 @@ export function App() {
             : job,
         ),
       );
+
+      if (selectedToolId === "compressPdf") {
+        return;
+      }
+
       const completedJob: JobState = {
         ...newJob,
         status: "complete",
@@ -535,6 +619,20 @@ export function App() {
   const isSettingsView = activeView === "settings";
   const isHomeView = activeView === "home";
   const latestVisibleJob = jobs.find((job) => job.tool === selectedToolId) ?? jobs[0] ?? null;
+  const splitGroups = useMemo(
+    () =>
+      selectedToolId === "splitPdf"
+        ? parseSplitGroups(form.ranges, pdfPreview?.pageCount ?? 0)
+        : null,
+    [selectedToolId, form.ranges, pdfPreview?.pageCount],
+  );
+  const splitPageGroups = useMemo(() => {
+    const pageToGroup = new Map<number, number>();
+    splitGroups?.forEach((group, index) => {
+      group.pages.forEach((page) => pageToGroup.set(page, index + 1));
+    });
+    return pageToGroup;
+  }, [splitGroups]);
 
   return (
     <main className={`app-shell ${isNativeSidebarCollapsed ? "native-sidebar-collapsed" : ""}`}>
@@ -705,6 +803,31 @@ export function App() {
                     setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
                   }
                 />
+              ) : selectedToolId === "mergePdf" ? (
+                <MergeBoard
+                  files={form.inputs}
+                  thumbnails={mergePreviews}
+                  draggedId={draggedMergePath}
+                  onDragEnd={() => setDraggedMergePath(null)}
+                  onDragStart={setDraggedMergePath}
+                  onMove={moveMergeItem}
+                  onRemove={removeFile}
+                />
+              ) : selectedToolId === "splitPdf" ? (
+                <>
+                  <PdfPreviewGrid
+                    preview={pdfPreview}
+                    isLoading={isPreviewLoading}
+                    error={previewError}
+                    visibleCount={previewVisibleCount}
+                    groupByPage={splitPageGroups}
+                    onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
+                    onShowMore={() =>
+                      setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
+                    }
+                  />
+                  <SplitGroupsBoard groups={splitGroups} preview={pdfPreview} />
+                </>
               ) : isPdfPreviewTool(selectedToolId) ? (
                 <PdfPreviewGrid
                   preview={pdfPreview}
@@ -754,6 +877,13 @@ export function App() {
               )}
 
               <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
+
+              {selectedToolId === "compressPdf" && form.input ? (
+                <p className="source-size-note">
+                  <strong>{sourceFileSize ? formatBytes(sourceFileSize) : "—"}</strong>
+                  <span>current file size</span>
+                </p>
+              ) : null}
 
               <button
                 className="run-button"
@@ -1194,16 +1324,25 @@ function SelectedFileStage({ files }: { files: string[] }) {
 function CurrentJobStatus({ job }: {
   job: JobState | null;
 }) {
-  if (!job || job.status === "complete") return null;
+  if (!job || (job.status === "complete" && job.tool !== "compressPdf")) return null;
+
+  const summary = job.result ? compressionSummary(job.result) : null;
 
   return (
     <section className={`current-job ${job.status}`}>
       <div>
         <strong>{job.title}</strong>
         <small>{job.message}</small>
+        {job.status === "complete" && summary ? (
+          <span className="job-size-summary">{summary}</span>
+        ) : null}
       </div>
-      {job.status === "running" ? <Loader2 className="spin" size={16} /> : null}
-      {job.result ? (
+      {job.status === "running" ? (
+        <Loader2 className="spin" size={16} />
+      ) : (
+        <CheckCircle2 size={16} className="ok" />
+      )}
+      {job.result && job.status === "running" ? (
         <p className="job-output-summary">
           {job.result.outputs.length === 1
             ? "1 output file is ready"
@@ -1370,6 +1509,7 @@ function PdfPreviewGrid({
   visibleCount,
   onShowAll,
   onShowMore,
+  groupByPage,
 }: {
   preview: PdfPreview | null;
   isLoading: boolean;
@@ -1377,6 +1517,7 @@ function PdfPreviewGrid({
   visibleCount: number;
   onShowAll: () => void;
   onShowMore: () => void;
+  groupByPage?: Map<number, number>;
 }) {
   if (isLoading) {
     return (
@@ -1414,12 +1555,22 @@ function PdfPreviewGrid({
         </span>
       </div>
       <div className="preview-grid">
-        {visiblePages.map((page) => (
-          <figure className="preview-thumb" key={page.pageNumber}>
-            <img alt={`Page ${page.pageNumber}`} src={page.dataUrl} />
-            <figcaption>{page.pageNumber}</figcaption>
-          </figure>
-        ))}
+        {visiblePages.map((page) => {
+          const group = groupByPage?.get(page.pageNumber);
+          return (
+            <figure className="preview-thumb" key={page.pageNumber}>
+              <img alt={`Page ${page.pageNumber}`} src={page.dataUrl} />
+              {group ? (
+                <span
+                  className={`thumb-group-badge hue-${GROUP_HUES[(group - 1) % GROUP_HUES.length]}`}
+                >
+                  {group}
+                </span>
+              ) : null}
+              <figcaption>{page.pageNumber}</figcaption>
+            </figure>
+          );
+        })}
       </div>
       {canShowMore ? (
         <div className="preview-actions">
@@ -1528,6 +1679,7 @@ function OrganizeBoard({
             onPointerUp={endPageDrag}
           >
             <div className="organize-thumb">
+              <span className="order-badge">{index + 1}</span>
               <img
                 alt={`Page ${item.sourcePage}`}
                 draggable={false}
@@ -1536,9 +1688,7 @@ function OrganizeBoard({
               />
             </div>
             <div className="organize-card-footer">
-              <span>
-                {index + 1}. Page {item.sourcePage}
-              </span>
+              <span>Page {item.sourcePage}</span>
               {item.rotateDegrees ? <small>{item.rotateDegrees} deg</small> : null}
             </div>
             <div className="organize-actions">
@@ -1565,6 +1715,145 @@ function OrganizeBoard({
           </button>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function MergeBoard({
+  files,
+  thumbnails,
+  draggedId,
+  onDragEnd,
+  onDragStart,
+  onMove,
+  onRemove,
+}: {
+  files: string[];
+  thumbnails: Record<string, string>;
+  draggedId: string | null;
+  onDragEnd: () => void;
+  onDragStart: (path: string) => void;
+  onMove: (sourcePath: string, targetPath: string) => void;
+  onRemove: (path: string) => void;
+}) {
+  function startFileDrag(event: PointerEvent<HTMLElement>, path: string) {
+    if ((event.target as HTMLElement).closest("button")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onDragStart(path);
+  }
+
+  function moveOverFile(event: PointerEvent<HTMLElement>, path: string) {
+    event.stopPropagation();
+    if (draggedId) onMove(draggedId, path);
+  }
+
+  function endFileDrag(event: PointerEvent<HTMLElement>) {
+    event.stopPropagation();
+    onDragEnd();
+  }
+
+  if (files.length === 0) return null;
+
+  return (
+    <section className="merge-board" onPointerLeave={onDragEnd} onPointerUp={onDragEnd}>
+      <div className="preview-heading">
+        <strong>Merge order</strong>
+        <span>Drag cards to reorder — files merge top to bottom</span>
+      </div>
+      <div className="merge-grid">
+        {files.map((path, index) => (
+          <article
+            className={`merge-card ${draggedId === path ? "dragging" : ""}`}
+            key={path}
+            onPointerCancel={endFileDrag}
+            onPointerDown={(event) => startFileDrag(event, path)}
+            onPointerEnter={(event) => moveOverFile(event, path)}
+            onPointerUp={endFileDrag}
+          >
+            <span className="order-badge">{index + 1}</span>
+            <div className="merge-thumb">
+              {thumbnails[path] ? (
+                <img alt={basename(path)} draggable={false} src={thumbnails[path]} />
+              ) : (
+                <Files size={22} />
+              )}
+            </div>
+            <div className="merge-card-footer">
+              <span>{basename(path)}</span>
+              <button onClick={() => onRemove(path)} title="Remove" type="button">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SplitGroupsBoard({
+  groups,
+  preview,
+}: {
+  groups: SplitGroup[] | null;
+  preview: PdfPreview | null;
+}) {
+  if (!preview || !groups) return null;
+  const pageThumbnails = new Map(
+    preview.pages.map((page) => [page.pageNumber, page.dataUrl] as const),
+  );
+
+  return (
+    <section className="split-groups-board">
+      <div className="preview-heading">
+        <strong>Split groups</strong>
+        <span>
+          {groups.length === 1 ? "1 output file" : `${groups.length} output files`} from the
+          ranges above
+        </span>
+      </div>
+      <div className="split-groups-grid">
+        {groups.map((group, index) => {
+          const visiblePages = group.pages.slice(0, 8);
+          return (
+            <article
+              className={`split-group-card hue-${GROUP_HUES[index % GROUP_HUES.length]}`}
+              key={`${group.label}-${index}`}
+            >
+              <header>
+                <span className="split-group-number">{index + 1}</span>
+                <div>
+                  <strong>{group.label}</strong>
+                  <small>
+                    {group.pages.length} {group.pages.length === 1 ? "page" : "pages"}
+                  </small>
+                </div>
+              </header>
+              <div className="split-group-pages">
+                {visiblePages.map((page) => {
+                  const thumbnail = pageThumbnails.get(page);
+                  return (
+                    <figure key={page}>
+                      {thumbnail ? (
+                        <img alt={`Page ${page}`} draggable={false} src={thumbnail} />
+                      ) : (
+                        <span className="split-page-fallback">{page}</span>
+                      )}
+                      <figcaption>{page}</figcaption>
+                    </figure>
+                  );
+                })}
+                {group.pages.length > visiblePages.length ? (
+                  <span className="split-group-more">
+                    +{group.pages.length - visiblePages.length}
+                  </span>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -1721,7 +2010,6 @@ function availabilityMessage(reason: string) {
 
 function isPdfPreviewTool(tool: ToolId) {
   return [
-    "mergePdf",
     "splitPdf",
     "organizePdf",
     "compressPdf",
@@ -1737,16 +2025,69 @@ function outputFilters(tool: ToolId) {
 }
 
 function jobCompleteMessage(tool: ToolId, result: JobResult) {
-  if (tool === "compressPdf" && result.inputBytes && result.outputBytes) {
-    const original = formatBytes(result.inputBytes);
-    const compressed = formatBytes(result.outputBytes);
-    if (result.outputBytes < result.inputBytes) {
-      const percent = Math.max(1, Math.round((1 - result.outputBytes / result.inputBytes) * 100));
-      return `Reduced ${original} to ${compressed} (${percent}% smaller). Choose where to save it.`;
-    }
-    return `Result is ${compressed} — about the same as the original ${original}. Choose where to save it.`;
+  if (tool === "compressPdf") {
+    const summary = compressionSummary(result);
+    if (summary) return `${summary}. Choose where to save it.`;
   }
   return "Generated. Choose where to save it.";
+}
+
+function compressionSummary(result: JobResult) {
+  if (!result.inputBytes || !result.outputBytes) return null;
+  if (result.outputBytes < result.inputBytes) {
+    const percent = Math.max(1, Math.round((1 - result.outputBytes / result.inputBytes) * 100));
+    return `${formatBytes(result.inputBytes)} → ${formatBytes(result.outputBytes)} · ${percent}% smaller`;
+  }
+  return `${formatBytes(result.outputBytes)} · about the same as the ${formatBytes(result.inputBytes)} input`;
+}
+
+const GROUP_HUES = ["violet", "blue", "teal", "amber", "pink", "green"];
+
+function parseSplitGroups(ranges: string, pageCount: number): SplitGroup[] | null {
+  const trimmed = ranges.trim();
+  if (!trimmed || pageCount <= 0) return null;
+
+  const groups: SplitGroup[] = [];
+  for (const rawPart of trimmed.split(",")) {
+    const part = rawPart.trim();
+    if (!part) continue;
+
+    const bounds = part.split("-");
+    let start: number;
+    let end: number;
+    if (bounds.length === 2) {
+      start = Number(bounds[0]);
+      end = Number(bounds[1]);
+    } else if (bounds.length === 1) {
+      start = Number(bounds[0]);
+      end = start;
+    } else {
+      return null;
+    }
+
+    if (
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start < 1 ||
+      end < start ||
+      bounds.some((value) => value.trim() === "")
+    ) {
+      return null;
+    }
+
+    const pages: number[] = [];
+    for (let page = start; page <= Math.min(end, pageCount); page += 1) {
+      pages.push(page);
+    }
+    if (pages.length > 0) {
+      groups.push({
+        label: start === end ? `Page ${start}` : `Pages ${start}–${Math.min(end, pageCount)}`,
+        pages,
+      });
+    }
+  }
+
+  return groups.length > 0 ? groups : null;
 }
 
 function formatBytes(bytes: number) {

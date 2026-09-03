@@ -44,6 +44,13 @@ fn get_pdf_preview(app: AppHandle, request: PdfPreviewRequest) -> Result<PdfPrev
 }
 
 #[tauri::command]
+fn get_file_size(path: PathBuf) -> Result<u64, String> {
+    fs::metadata(&path)
+        .map(|metadata| metadata.len())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn save_output(source: PathBuf, destination: PathBuf) -> Result<(), String> {
     if source.is_dir() {
         copy_dir_all(&source, &destination).map_err(|error| error.to_string())
@@ -159,6 +166,7 @@ pub fn run() {
             get_operation_options,
             execute_job,
             get_pdf_preview,
+            get_file_size,
             save_output,
             set_appearance,
             set_native_sidebar_collapsed

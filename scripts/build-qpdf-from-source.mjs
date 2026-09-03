@@ -21,11 +21,26 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cacheRoot = join(root, ".engine-cache");
 const binRoot = join(root, "src-tauri", "resources", "bin");
 const qpdfVersion = process.env.QPDF_VERSION || "12.3.2";
-const target = targetKey(process.platform, process.arch);
 
+function requestedTarget() {
+  const index = process.argv.indexOf("--target");
+  if (index >= 0 && process.argv[index + 1]) return process.argv[index + 1];
+  const flag = process.argv.find((value) => value.startsWith("--target="));
+  return flag ? flag.slice("--target=".length) : undefined;
+}
+
+const hostTarget = targetKey(process.platform, process.arch);
+const target = requestedTarget() || hostTarget;
+
+if (!hostTarget) {
+  throw new Error(`Unsupported qpdf build host: ${process.platform}-${process.arch}`);
+}
 if (!target) {
   throw new Error(`Unsupported qpdf build target: ${process.platform}-${process.arch}`);
 }
+
+const crossDarwinTarget =
+  target !== hostTarget && process.platform === "darwin" && target.startsWith("macos-");
 
 await requireCommand("cmake");
 await requireCommand("c++");
@@ -71,6 +86,13 @@ const cmakeArgs = [
   "-DINSTALL_PKGCONFIG=OFF",
   "-DINSTALL_CMAKE_PACKAGE=OFF",
 ];
+
+if (crossDarwinTarget) {
+  const arch = target === "macos-x86_64" ? "x86_64" : "arm64";
+  cmakeArgs.push(`-DCMAKE_OSX_ARCHITECTURES=${arch}`);
+  cmakeArgs.push(`-DCMAKE_SYSTEM_PROCESSOR=${arch}`);
+  cmakeArgs.push(`-DCMAKE_OSX_DEPLOYMENT_TARGET=${process.env.MACOSX_DEPLOYMENT_TARGET || "10.15"}`);
+}
 
 await run("cmake", cmakeArgs);
 await run("cmake", ["--build", buildDir, "--config", "MinSizeRel", "--target", "qpdf", "--parallel"]);

@@ -575,7 +575,7 @@ fn bind_pdfium(deps: &DependencySet) -> Result<Pdfium, PdfToolError> {
     }
 }
 
-fn run_command(mut command: Command) -> Result<(), PdfToolError> {
+fn run_command(command: Command) -> Result<(), PdfToolError> {
     run_command_with_warnings(command).map(|_| ())
 }
 

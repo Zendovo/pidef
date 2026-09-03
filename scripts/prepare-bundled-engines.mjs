@@ -13,10 +13,19 @@ const cacheRoot = join(root, ".engine-cache");
 
 const pdfiumVersion = "chromium/7881";
 
+function requestedTarget() {
+  const flag = process.argv.find((value) => value.startsWith("--target="));
+  return flag ? flag.slice("--target=".length) : undefined;
+}
+
 const platform = process.platform;
 const arch = process.arch;
-const target = targetKey(platform, arch);
+const hostTarget = targetKey(platform, arch);
+const target = requestedTarget() || hostTarget;
 
+if (!hostTarget) {
+  throw new Error(`Unsupported engine bundle host: ${platform}-${arch}`);
+}
 if (!target) {
   throw new Error(`Unsupported engine bundle target: ${platform}-${arch}`);
 }
@@ -104,7 +113,7 @@ async function prepareQpdfFromZip(targetKeyValue, url) {
   const extractDir = join(cacheRoot, archive.split("/").pop().replace(/\.zip$/, ""));
   await rm(extractDir, { recursive: true, force: true });
   await mkdir(extractDir, { recursive: true });
-  await run("unzip", ["-q", archive, "-d", extractDir]);
+  await extractZip(archive, extractDir);
 
   const executable = await findFirst(extractDir, qpdfExecutableName(targetKeyValue));
   if (!executable) {
@@ -144,6 +153,15 @@ function run(command, args) {
       else reject(new Error(`${command} exited with code ${code}`));
     });
   });
+}
+
+async function extractZip(archive, extractDir) {
+  try {
+    await run("unzip", ["-q", archive, "-d", extractDir]);
+  } catch {
+    // bsdtar (the default tar on macOS and Windows) can extract zip archives too.
+    await run("tar", ["-xf", archive, "-C", extractDir]);
+  }
 }
 
 async function findFirst(rootDir, fileName) {

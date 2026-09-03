@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-aarch64
+            os: macos-latest
+            rust-target: aarch64-apple-darwin
+            bundles: "app,dmg"
+          # Intel macOS is cross-compiled from an arm64 runner (GitHub has no
+          # current Intel macOS runners). qpdf is built with
+          # -DCMAKE_OSX_ARCHITECTURES=x86_64 by build-qpdf-from-source.mjs,
+          # and Swift is cross-compiled via SWIFT_TARGET for swift-rs.
+          - target: macos-x86_64
+            os: macos-latest
+            rust-target: x86_64-apple-darwin
+            bundles: "app,dmg"
+            cross-macos-x86-64: "1"
+          - target: windows-x86_64
+            os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            bundles: "nsis,msi"
+
+    runs-on: ${{ matrix.os }}
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify updater signing key is configured
+        shell: bash
+        env:
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY secret is missing. Generate it with: npm run tauri signer generate -w <path> and store the key file contents in the secret."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            src-tauri
+
+      - run: npm ci
+
+      - name: Stage bundled engines (macOS, build qpdf from source)
+        if: runner.os == 'macOS'
+        run: |
+          npm run build:qpdf -- --target ${{ matrix.target }}
+          node scripts/prepare-bundled-engines.mjs --target=${{ matrix.target }}
+
+      - name: Stage bundled engines (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/prepare-bundled-engines.mjs
+
+      - name: Cross-compile environment (macOS x86_64)
+        if: matrix.cross-macos-x86-64 == '1'
+        run: |
+          echo "SWIFT_TARGET=x86_64-apple-macos10.15" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> "$GITHUB_ENV"
+
+      - name: Verify bundled engines
+        run: node scripts/verify-bundled-engines.mjs --target=${{ matrix.target }}
+
+      - name: Build Pidef
+        run: npm run tauri build -- --target ${{ matrix.rust-target }} --bundles ${{ matrix.bundles }}
+
+      - name: Upload artifacts (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pidef-${{ matrix.target }}
+          path: |
+            src-tauri/target/${{ matrix.rust-target }}/release/bundle/macos/**
+            src-tauri/target/${{ matrix.rust-target }}/release/bundle/dmg/**
+
+      - name: Upload artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pidef-${{ matrix.target }}
+          path: |
+            src-tauri/target/release/bundle/nsis/**
+            src-tauri/target/release/bundle/msi/**
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Flatten artifacts for release upload
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          mkdir -p release-flat
+          for f in \
+            release-artifacts/pidef-macos-aarch64/**/*.dmg \
+            release-artifacts/pidef-macos-aarch64/**/*.app.tar.gz \
+            release-artifacts/pidef-macos-aarch64/**/*.app.tar.gz.sig \
+            release-artifacts/pidef-macos-x86_64/**/*.dmg \
+            release-artifacts/pidef-macos-x86_64/**/*.app.tar.gz \
+            release-artifacts/pidef-macos-x86_64/**/*.app.tar.gz.sig \
+            release-artifacts/pidef-windows-x86_64/**/*-setup.exe \
+            release-artifacts/pidef-windows-x86_64/**/*-setup.exe.sig \
+            release-artifacts/pidef-windows-x86_64/**/*.msi
+          do
+            rel="${f#release-artifacts/}"
+            cp "$f" "release-flat/${rel//\//-}"
+          done
+          ls release-flat
+
+      - name: Generate updater manifest
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node scripts/generate-updater-manifest.mjs \
+            --artifacts release-flat \
+            --version "$version" \
+            --download-base "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}" \
+            --notes "Pidef $version" \
+            --out release-flat/latest.json
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s globstar nullglob
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Pidef $GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" release-flat/* --clobber

@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   ArrowRight,
@@ -21,6 +22,7 @@ import { type CSSProperties, PointerEvent, type ReactNode, useEffect, useMemo, u
 import { invokeCommand, isTauriRuntime } from "./runtime";
 import { toolById, tools, type ToolDefinition, type ToolId } from "./tools";
 import type { DependencySet, JobResult, JobState, OperationOptions, PdfPreview } from "./types";
+import { checkForUpdates, installPendingUpdate, type UpdateState } from "./updater";
 
 type AppearanceMode = "system" | "light" | "dark";
 type AppView = ToolId | "home" | "history" | "settings";
@@ -94,6 +96,12 @@ export function App() {
   );
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
   const [isAddFileMenuOpen, setIsAddFileMenuOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    status: "idle",
+    version: null,
+    message: null,
+  });
 
   const selectedTool = toolById[selectedToolId];
   const selectedOption = operationOptions.find((option) => option.tool === selectedToolId);
@@ -107,6 +115,12 @@ export function App() {
 
   useEffect(() => {
     void refreshRuntime();
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+    void checkForUpdates().then(setUpdateState);
   }, []);
 
   useEffect(() => {
@@ -646,8 +660,12 @@ export function App() {
             appearance={appearance}
             dependencies={dependencyList}
             operationOptions={operationOptions}
+            appVersion={appVersion}
+            updateState={updateState}
             onAppearanceChange={setAppearance}
             onRefreshRuntime={refreshRuntime}
+            onCheckForUpdates={async () => setUpdateState(await checkForUpdates())}
+            onInstallUpdate={async () => setUpdateState(await installPendingUpdate())}
           />
         ) : (
           <div className="workbench" style={{ "--tool-accent": selectedTool.accent } as CSSProperties}>
@@ -759,20 +777,61 @@ function SettingsView({
   appearance,
   dependencies,
   operationOptions,
+  appVersion,
+  updateState,
   onAppearanceChange,
   onRefreshRuntime,
+  onCheckForUpdates,
+  onInstallUpdate,
 }: {
   appearance: AppearanceMode;
   dependencies: DependencySet[keyof DependencySet][];
   operationOptions: OperationOptions[];
+  appVersion: string | null;
+  updateState: UpdateState;
   onAppearanceChange: (appearance: AppearanceMode) => void;
   onRefreshRuntime: () => void;
+  onCheckForUpdates: () => Promise<void>;
+  onInstallUpdate: () => Promise<void>;
 }) {
   const runtimeRows = dependencies.length > 0 ? dependencies : [];
   const unavailableTools = operationOptions.filter((option) => option.unavailableReason);
 
+  const updateCopy: Record<UpdateState["status"], string> = {
+    idle: "Updates are checked automatically when Pidef starts.",
+    checking: "Checking for updates…",
+    downloading: "Downloading update…",
+    installing: "Installing update and restarting…",
+    upToDate: `Pidef ${appVersion ?? ""} is up to date.`.replace("  ", " "),
+    available: `Pidef ${updateState.version ?? ""} is available.`,
+    error: updateState.message ?? "Update check failed.",
+  };
+  const updateBusy = updateState.status === "checking" || updateState.status === "downloading";
+
   return (
     <div className="settings-grid">
+      <section className="settings-panel">
+        <div className="settings-heading">
+          <h3>Updates</h3>
+          <button
+            className="save-button compact"
+            disabled={updateBusy || updateState.status === "installing"}
+            onClick={() => void onCheckForUpdates()}
+            type="button"
+          >
+            {updateBusy ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+            {updateState.status === "available" ? "Refresh" : "Check now"}
+          </button>
+        </div>
+        <p className="update-status">{updateCopy[updateState.status]}</p>
+        {updateState.status === "available" ? (
+          <button className="save-button" onClick={() => void onInstallUpdate()} type="button">
+            <Download size={15} />
+            Download and restart
+          </button>
+        ) : null}
+      </section>
+
       <section className="settings-panel">
         <div className="settings-heading">
           <h3>Appearance</h3>

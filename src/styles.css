@@ -1661,6 +1661,17 @@ textarea,
   margin: 0;
 }
 
+.update-status {
+  color: rgba(244, 244, 245, 0.72);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+
+:root[data-theme="light"] .update-status {
+  color: #3f3f46;
+}
+
 .segmented-control {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);

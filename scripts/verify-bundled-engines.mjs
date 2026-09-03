@@ -3,8 +3,18 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const target = targetKey(process.platform, process.arch);
 
+function requestedTarget() {
+  const flag = process.argv.find((value) => value.startsWith("--target="));
+  return flag ? flag.slice("--target=".length) : undefined;
+}
+
+const hostTarget = targetKey(process.platform, process.arch);
+const target = requestedTarget() || hostTarget;
+
+if (!hostTarget) {
+  throw new Error(`Unsupported engine bundle host: ${process.platform}-${process.arch}`);
+}
 if (!target) {
   throw new Error(`Unsupported engine bundle target: ${process.platform}-${process.arch}`);
 }

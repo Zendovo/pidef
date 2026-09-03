@@ -86,19 +86,17 @@ pub struct OrganizePage {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum CompressionProfile {
-    Screen,
-    Ebook,
-    Printer,
-    Prepress,
+    Safe,
+    Balanced,
+    Small,
 }
 
 impl CompressionProfile {
-    pub fn ghostscript_value(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
-            CompressionProfile::Screen => "/screen",
-            CompressionProfile::Ebook => "/ebook",
-            CompressionProfile::Printer => "/printer",
-            CompressionProfile::Prepress => "/prepress",
+            CompressionProfile::Safe => "Safe",
+            CompressionProfile::Balanced => "Balanced",
+            CompressionProfile::Small => "Small",
         }
     }
 }

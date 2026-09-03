@@ -55,7 +55,6 @@ function previewPdfPreview() {
 function previewDependencies(): DependencySet {
   return {
     qpdf: previewDependency("qpdf", "/Applications/Pidef.app/Contents/Resources/bin/qpdf"),
-    ghostscript: previewDependency("Ghostscript", "/usr/local/bin/gs", "system"),
     pdfRenderer: previewDependency("PDFium", "/Applications/Pidef.app/Contents/Resources/bin/pdfium"),
     libreoffice: previewDependency("LibreOffice", "/Applications/LibreOffice.app"),
   };
@@ -80,9 +79,6 @@ function previewOperationOptions(): OperationOptions[] {
   return tools.map((tool) => ({
     tool: tool.id as ToolId,
     requires: tool.id === "jpgToPdf" ? [] : ["preview runtime"],
-    unavailableReason:
-      tool.id === "compressPdf"
-        ? "Compression is a planned in-house feature and is intentionally disabled for now"
-        : null,
+    unavailableReason: null,
   }));
 }

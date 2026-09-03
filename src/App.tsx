@@ -250,12 +250,7 @@ export function App() {
   const dependencyList = useMemo(
     () =>
       dependencies
-        ? [
-            dependencies.qpdf,
-            dependencies.ghostscript,
-            dependencies.pdfRenderer,
-            dependencies.libreoffice,
-          ]
+        ? [dependencies.qpdf, dependencies.pdfRenderer, dependencies.libreoffice]
         : [],
     [dependencies],
   );
@@ -408,13 +403,14 @@ export function App() {
 
     try {
       const result = await invokeCommand<JobResult>("execute_job", { request });
+      const completeMessage = jobCompleteMessage(selectedToolId, result);
       setJobs((current) =>
         current.map((job) =>
           job.id === id
             ? {
                 ...job,
                 status: "complete",
-                message: "Generated. Choose where to save it.",
+                message: completeMessage,
                 result,
               }
             : job,
@@ -423,7 +419,7 @@ export function App() {
       const completedJob: JobState = {
         ...newJob,
         status: "complete",
-        message: "Generated. Choose where to save it.",
+        message: completeMessage,
         result,
       };
       const saved = await saveJobOutput(completedJob);
@@ -1196,10 +1192,9 @@ function OperationFields({
               onChange({ ...form, profile: event.target.value as FormState["profile"] })
             }
           >
-            <option value="screen">Screen</option>
-            <option value="ebook">Ebook</option>
-            <option value="printer">Printer</option>
-            <option value="prepress">Prepress</option>
+            <option value="safe">Safe — lossless optimization</option>
+            <option value="balanced">Balanced — recommended</option>
+            <option value="small">Small — softest images</option>
           </select>
         </Field>
       ) : null}
@@ -1680,6 +1675,32 @@ function isPdfPreviewTool(tool: ToolId) {
 function outputFilters(tool: ToolId) {
   if (tool === "pdfToJpg") return [{ name: "JPEG", extensions: ["jpg", "jpeg"] }];
   return [{ name: "PDF", extensions: ["pdf"] }];
+}
+
+function jobCompleteMessage(tool: ToolId, result: JobResult) {
+  if (tool === "compressPdf" && result.inputBytes && result.outputBytes) {
+    const original = formatBytes(result.inputBytes);
+    const compressed = formatBytes(result.outputBytes);
+    if (result.outputBytes < result.inputBytes) {
+      const percent = Math.max(1, Math.round((1 - result.outputBytes / result.inputBytes) * 100));
+      return `Reduced ${original} to ${compressed} (${percent}% smaller). Choose where to save it.`;
+    }
+    return `Result is ${compressed} — about the same as the original ${original}. Choose where to save it.`;
+  }
+  return "Generated. Choose where to save it.";
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes;
+  let unit = "B";
+  for (const next of units) {
+    if (value < 1024) break;
+    value /= 1024;
+    unit = next;
+  }
+  return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${unit}`;
 }
 
 function suggestedOutputName(tool: ToolId, source: string) {

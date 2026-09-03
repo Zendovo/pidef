@@ -340,20 +340,50 @@ fn run_compress(
     input: &Path,
     profile: CompressionProfile,
 ) -> Result<JobResult, PdfToolError> {
-    require(&deps.ghostscript)?;
+    require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let mut command = hidden_command(&deps.ghostscript.command);
-    command
-        .arg("-sDEVICE=pdfwrite")
-        .arg("-dCompatibilityLevel=1.4")
-        .arg(format!("-dPDFSETTINGS={}", profile.ghostscript_value()))
-        .arg("-dNOPAUSE")
-        .arg("-dQUIET")
-        .arg("-dBATCH")
-        .arg(format!("-sOutputFile={}", output.display()))
-        .arg(input);
-    run_command(command)?;
-    result_for(request, &[output.clone()], &[input.to_path_buf()])
+    let mut command = hidden_command(&deps.qpdf.command);
+    for argument in compress_arguments(profile) {
+        command.arg(argument);
+    }
+    command.arg("--").arg(input).arg(output);
+    let warnings = run_command_with_warnings(command).map_err(|error| match error {
+        PdfToolError::ConversionFailed(message) if message.to_lowercase().contains("password") => {
+            PdfToolError::InvalidPassword
+        }
+        other => other,
+    })?;
+
+    let mut result = result_for(request, &[output.clone()], &[input.to_path_buf()])?;
+    result.warnings = warnings;
+    Ok(result)
+}
+
+fn compress_arguments(profile: CompressionProfile) -> Vec<&'static str> {
+    let mut arguments = vec![
+        "--decode-level=generalized",
+        "--object-streams=generate",
+        "--recompress-flate",
+        "--compression-level=9",
+    ];
+
+    match profile {
+        CompressionProfile::Safe => {}
+        CompressionProfile::Balanced => {
+            arguments.push("--optimize-images");
+            arguments.push("--jpeg-quality=85");
+            arguments.push("--oi-min-width=128");
+            arguments.push("--oi-min-height=128");
+        }
+        CompressionProfile::Small => {
+            arguments.push("--optimize-images");
+            arguments.push("--jpeg-quality=65");
+            arguments.push("--oi-min-width=64");
+            arguments.push("--oi-min-height=64");
+        }
+    }
+
+    arguments
 }
 
 fn run_pdf_to_jpg(
@@ -546,20 +576,26 @@ fn bind_pdfium(deps: &DependencySet) -> Result<Pdfium, PdfToolError> {
 }
 
 fn run_command(mut command: Command) -> Result<(), PdfToolError> {
+    run_command_with_warnings(command).map(|_| ())
+}
+
+/// Runs a command and tolerates qpdf's "warnings" exit code (3), collecting
+/// the warning lines instead of failing the job.
+fn run_command_with_warnings(mut command: Command) -> Result<Vec<String>, PdfToolError> {
     let output = command.output()?;
-    if output.status.success() {
-        return Ok(());
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let details = if stderr.is_empty() { stdout } else { stderr };
+
+    match output.status.code() {
+        Some(0) => Ok(Vec::new()),
+        Some(3) => Ok(details
+            .lines()
+            .map(str::to_string)
+            .filter(|line| !line.trim().is_empty())
+            .collect()),
+        _ => Err(PdfToolError::ConversionFailed(details)),
     }
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let details = if stderr.trim().is_empty() {
-        stdout.trim().to_string()
-    } else {
-        stderr.trim().to_string()
-    };
-
-    Err(PdfToolError::ConversionFailed(details))
 }
 
 fn hidden_command(program: &str) -> Command {
@@ -832,14 +868,40 @@ mod tests {
     }
 
     #[test]
-    fn maps_compression_profiles_to_ghostscript_values() {
-        assert_eq!(CompressionProfile::Screen.ghostscript_value(), "/screen");
-        assert_eq!(CompressionProfile::Ebook.ghostscript_value(), "/ebook");
-        assert_eq!(CompressionProfile::Printer.ghostscript_value(), "/printer");
-        assert_eq!(
-            CompressionProfile::Prepress.ghostscript_value(),
-            "/prepress"
-        );
+    fn safe_profile_uses_only_lossless_arguments() {
+        let arguments = compress_arguments(CompressionProfile::Safe);
+        assert!(arguments.contains(&"--object-streams=generate"));
+        assert!(arguments.contains(&"--recompress-flate"));
+        assert!(arguments.contains(&"--compression-level=9"));
+        assert!(!arguments.contains(&"--optimize-images"));
+    }
+
+    #[test]
+    fn balanced_and_small_profiles_enable_image_optimization() {
+        let balanced = compress_arguments(CompressionProfile::Balanced);
+        assert!(balanced.contains(&"--optimize-images"));
+        assert!(balanced.contains(&"--jpeg-quality=85"));
+
+        let small = compress_arguments(CompressionProfile::Small);
+        assert!(small.contains(&"--optimize-images"));
+        assert!(small.contains(&"--jpeg-quality=65"));
+        assert!(small.contains(&"--oi-min-width=64"));
+    }
+
+    #[test]
+    fn serializes_compression_profiles_as_camel_case() {
+        for (profile, name) in [
+            (CompressionProfile::Safe, "safe"),
+            (CompressionProfile::Balanced, "balanced"),
+            (CompressionProfile::Small, "small"),
+        ] {
+            assert_eq!(serde_json::to_string(&profile).unwrap(), format!("\"{name}\""));
+            assert_eq!(
+                serde_json::from_str::<CompressionProfile>(&format!("\"{name}\""))
+                    .unwrap(),
+                profile
+            );
+        }
     }
 
     #[test]

@@ -27,7 +27,6 @@ pub enum DependencySource {
 #[serde(rename_all = "camelCase")]
 pub struct DependencySet {
     pub qpdf: DependencyInfo,
-    pub ghostscript: DependencyInfo,
     pub pdf_renderer: DependencyInfo,
     pub libreoffice: DependencyInfo,
 }
@@ -35,10 +34,6 @@ pub struct DependencySet {
 impl DependencySet {
     pub fn has_qpdf(&self) -> bool {
         self.qpdf.available
-    }
-
-    pub fn has_ghostscript(&self) -> bool {
-        self.ghostscript.available
     }
 
     pub fn has_pdf_renderer(&self) -> bool {
@@ -57,7 +52,6 @@ pub fn detect_dependencies() -> DependencySet {
 pub fn detect_dependencies_with_roots(roots: &[PathBuf]) -> DependencySet {
     DependencySet {
         qpdf: dependency("qpdf", &["qpdf"], false, roots),
-        ghostscript: dependency("Compression engine", &[], true, roots),
         pdf_renderer: dependency(
             "PDFium",
             &["libpdfium.dylib", "pdfium.dll", "libpdfium.so"],

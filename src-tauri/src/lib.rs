@@ -22,11 +22,7 @@ fn get_operation_options(app: AppHandle) -> Vec<OperationOptions> {
         option(ToolId::MergePdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::SplitPdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::OrganizePdf, &["qpdf"], deps.has_qpdf()),
-        unavailable_option(
-            ToolId::CompressPdf,
-            &["compression TODO"],
-            "Compression is a planned in-house feature and is intentionally disabled for now",
-        ),
+        option(ToolId::CompressPdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::PdfToJpg, &["PDFium"], deps.has_pdf_renderer()),
         option(ToolId::JpgToPdf, &[], true),
         option(ToolId::PptToPdf, &["LibreOffice"], deps.has_libreoffice()),
@@ -100,14 +96,6 @@ fn option(tool: ToolId, requires: &[&str], available: bool) -> OperationOptions 
         requires: requires.iter().map(|value| (*value).to_string()).collect(),
         unavailable_reason: (!available)
             .then(|| format!("Missing required dependency: {}", requires.join(", "))),
-    }
-}
-
-fn unavailable_option(tool: ToolId, requires: &[&str], reason: &str) -> OperationOptions {
-    OperationOptions {
-        tool,
-        requires: requires.iter().map(|value| (*value).to_string()).collect(),
-        unavailable_reason: Some(reason.to_string()),
     }
 }
 

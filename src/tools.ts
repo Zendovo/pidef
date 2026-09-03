@@ -40,7 +40,7 @@ export type ToolDefinition = {
     outputPattern: string;
     dpi: number;
     quality: number;
-    profile: "screen" | "ebook" | "printer" | "prepress";
+    profile: "safe" | "balanced" | "small";
     pageSize: string;
     fitMode: string;
     marginMm: number;
@@ -55,7 +55,7 @@ const commonDefaults = {
   outputPattern: "split-{n}-{range}.pdf",
   dpi: 200,
   quality: 90,
-  profile: "ebook" as const,
+  profile: "balanced" as const,
   pageSize: "auto",
   fitMode: "fit",
   marginMm: 0,
@@ -95,7 +95,7 @@ export const tools: ToolDefinition[] = [
   {
     id: "compressPdf",
     title: "Compress PDF",
-    description: "Create a smaller PDF using quality profiles.",
+    description: "Shrink file size with lossless or image-smart presets.",
     icon: Archive,
     accent: "#7c3aed",
     needsMultipleInputs: false,

@@ -11,7 +11,6 @@ export type DependencyInfo = {
 
 export type DependencySet = {
   qpdf: DependencyInfo;
-  ghostscript: DependencyInfo;
   pdfRenderer: DependencyInfo;
   libreoffice: DependencyInfo;
 };

@@ -1914,22 +1914,40 @@ textarea,
 
 :root[data-theme="light"] .home-action {
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 14%, transparent), transparent 46%),
-    rgba(39, 39, 42, 0.055);
-  border-color: color-mix(in srgb, var(--tool-accent) 30%, rgba(39, 39, 42, 0.16));
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 22%, rgba(255, 255, 255, 0.22)), transparent 54%),
+    rgba(255, 255, 255, 0.84);
+  border-color: color-mix(in srgb, var(--tool-accent) 46%, rgba(39, 39, 42, 0.2));
+  box-shadow:
+    0 10px 22px rgba(39, 39, 42, 0.055),
+    inset 0 1px rgba(255, 255, 255, 0.86);
 }
 
 :root[data-theme="light"] .home-action:hover {
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 22%, transparent), transparent 50%),
-    rgba(39, 39, 42, 0.105);
-  border-color: color-mix(in srgb, var(--tool-accent) 44%, rgba(39, 39, 42, 0.24));
+    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 30%, rgba(255, 255, 255, 0.2)), transparent 58%),
+    rgba(255, 255, 255, 0.94);
+  border-color: color-mix(in srgb, var(--tool-accent) 62%, rgba(39, 39, 42, 0.22));
+  box-shadow:
+    0 12px 24px rgba(39, 39, 42, 0.075),
+    inset 0 1px rgba(255, 255, 255, 0.9);
 }
 
 :root[data-theme="light"] .home-action .tool-icon {
-  background: color-mix(in srgb, var(--tool-accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--tool-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--tool-accent) 18%, rgba(255, 255, 255, 0.62));
+  border-color: color-mix(in srgb, var(--tool-accent) 42%, rgba(39, 39, 42, 0.08));
   color: var(--tool-accent);
+}
+
+:root[data-theme="light"] .home-action strong {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .home-action small {
+  color: #3f3f46;
+}
+
+:root[data-theme="light"] .home-action-watermark {
+  opacity: 0.13;
 }
 
 :root[data-theme="light"] .tool-button.selected,
@@ -1937,6 +1955,30 @@ textarea,
   background: rgba(39, 39, 42, 0.08);
   border-color: transparent;
   box-shadow: none;
+  color: #18181b;
+}
+
+:root[data-theme="light"] .segmented-control {
+  background: rgba(39, 39, 42, 0.09);
+  border-color: rgba(39, 39, 42, 0.2);
+}
+
+:root[data-theme="light"] .segmented-control button {
+  color: #3f3f46;
+  font-weight: 600;
+}
+
+:root[data-theme="light"] .segmented-control button:hover {
+  background: rgba(255, 255, 255, 0.64);
+  color: #18181b;
+}
+
+:root[data-theme="light"] .segmented-control button.selected {
+  background: #ffffff;
+  border: 1px solid rgba(39, 39, 42, 0.12);
+  box-shadow:
+    0 4px 12px rgba(39, 39, 42, 0.1),
+    inset 0 1px rgba(255, 255, 255, 0.9);
   color: #18181b;
 }
 

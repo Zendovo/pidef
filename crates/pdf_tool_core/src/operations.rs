@@ -51,7 +51,15 @@ pub fn render_pdf_preview(
     let quality = request.quality.unwrap_or(72).clamp(1, 100);
 
     let mut pages = Vec::new();
-    for (index, page) in document.pages().iter().enumerate().take(max_pages) {
+    for (index, page) in document.pages().iter().enumerate() {
+        if let Some(selected) = &request.pages {
+            if !selected.contains(&(index as u32 + 1)) {
+                continue;
+            }
+        } else if index >= max_pages {
+            break;
+        }
+
         let ratio = page.height().value / page.width().value.max(1.0);
         let target_height = ((target_width as f32 * ratio).round() as i32).max(48);
         let image = page

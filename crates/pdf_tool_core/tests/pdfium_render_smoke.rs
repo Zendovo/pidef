@@ -28,6 +28,7 @@ fn reuses_bundled_pdfium_for_preview_and_pdf_to_jpg() {
         PdfPreviewRequest {
             input: input.clone(),
             max_pages: Some(1),
+            pages: None,
             width: Some(120),
             quality: Some(72),
         },

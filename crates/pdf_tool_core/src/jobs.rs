@@ -140,6 +140,8 @@ pub struct OperationOptions {
 pub struct PdfPreviewRequest {
     pub input: PathBuf,
     pub max_pages: Option<u16>,
+    /// Render only these 1-based page numbers (used for zoomed views).
+    pub pages: Option<Vec<u32>>,
     pub width: Option<i32>,
     pub quality: Option<u8>,
 }

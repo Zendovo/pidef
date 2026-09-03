@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Clock3,
   Download,
+  Eye,
   FilePlus2,
   Files,
   Home,
@@ -44,6 +45,14 @@ type OrganizeItem = {
 type SplitGroup = {
   label: string;
   pages: number[];
+};
+type ZoomState = {
+  status: "loading" | "ready" | "error";
+  pageNumber: number;
+  rotateDegrees: number;
+  title: string;
+  src: string | null;
+  message: string | null;
 };
 
 type FormState = Omit<ToolDefinition["defaults"], "input" | "inputs"> & {
@@ -104,6 +113,7 @@ export function App() {
   const [mergePreviews, setMergePreviews] = useState<Record<string, string>>({});
   const [draggedMergePath, setDraggedMergePath] = useState<string | null>(null);
   const [sourceFileSize, setSourceFileSize] = useState<number | null>(null);
+  const [zoomState, setZoomState] = useState<ZoomState | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>({
     status: "idle",
@@ -384,6 +394,40 @@ export function App() {
     setPreviewError(null);
     setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
     setIsAddFileMenuOpen(false);
+    setZoomState(null);
+  }
+
+  async function openPageZoom(input: string, pageNumber: number, title: string, rotateDegrees = 0) {
+    setZoomState({
+      status: "loading",
+      pageNumber,
+      rotateDegrees,
+      title,
+      src: null,
+      message: null,
+    });
+    try {
+      const preview = await invokeCommand<PdfPreview>("get_pdf_preview", {
+        request: { input, pages: [pageNumber], width: 980, quality: 86 },
+      });
+      const src = preview.pages[0]?.dataUrl ?? null;
+      setZoomState((current) =>
+        current && current.pageNumber === pageNumber
+          ? {
+              ...current,
+              status: src ? "ready" : "error",
+              src,
+              message: src ? null : "Could not render this page.",
+            }
+          : current,
+      );
+    } catch (error) {
+      setZoomState((current) =>
+        current && current.pageNumber === pageNumber
+          ? { ...current, status: "error", message: String(error) }
+          : current,
+      );
+    }
   }
 
   function applyCommandCenterFiles(paths: string[]) {
@@ -798,6 +842,9 @@ export function App() {
                   onDragStart={setDraggedOrganizeId}
                   onMove={moveOrganizeItem}
                   onRotate={rotateOrganizeItem}
+                  onZoomPage={(page, rotateDegrees) =>
+                    void openPageZoom(form.input, page, selectedTool.title, rotateDegrees)
+                  }
                   onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
                   onShowMore={() =>
                     setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
@@ -812,6 +859,7 @@ export function App() {
                   onDragStart={setDraggedMergePath}
                   onMove={moveMergeItem}
                   onRemove={removeFile}
+                  onZoomFile={(path) => void openPageZoom(path, 1, basename(path))}
                 />
               ) : selectedToolId === "splitPdf" ? (
                 <>
@@ -821,6 +869,7 @@ export function App() {
                     error={previewError}
                     visibleCount={previewVisibleCount}
                     groupByPage={splitPageGroups}
+                    onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
                     onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
                     onShowMore={() =>
                       setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
@@ -834,6 +883,7 @@ export function App() {
                   isLoading={isPreviewLoading}
                   error={previewError}
                   visibleCount={previewVisibleCount}
+                  onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
                   onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
                   onShowMore={() =>
                     setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
@@ -899,6 +949,7 @@ export function App() {
           </div>
         )}
       </section>
+      {zoomState ? <PageZoomModal zoom={zoomState} onClose={() => setZoomState(null)} /> : null}
     </main>
   );
 }
@@ -1510,6 +1561,7 @@ function PdfPreviewGrid({
   onShowAll,
   onShowMore,
   groupByPage,
+  onZoomPage,
 }: {
   preview: PdfPreview | null;
   isLoading: boolean;
@@ -1518,6 +1570,7 @@ function PdfPreviewGrid({
   onShowAll: () => void;
   onShowMore: () => void;
   groupByPage?: Map<number, number>;
+  onZoomPage?: (pageNumber: number) => void;
 }) {
   if (isLoading) {
     return (
@@ -1558,8 +1611,16 @@ function PdfPreviewGrid({
         {visiblePages.map((page) => {
           const group = groupByPage?.get(page.pageNumber);
           return (
-            <figure className="preview-thumb" key={page.pageNumber}>
-              <img alt={`Page ${page.pageNumber}`} src={page.dataUrl} />
+            <figure
+              className={`preview-thumb ${onZoomPage ? "clickable" : ""}`}
+              key={page.pageNumber}
+              onClick={onZoomPage ? () => onZoomPage(page.pageNumber) : undefined}
+            >
+              <img
+                alt={`Page ${page.pageNumber}`}
+                draggable={false}
+                src={page.dataUrl}
+              />
               {group ? (
                 <span
                   className={`thumb-group-badge hue-${GROUP_HUES[(group - 1) % GROUP_HUES.length]}`}
@@ -1599,6 +1660,7 @@ function OrganizeBoard({
   onDragStart,
   onMove,
   onRotate,
+  onZoomPage,
   onShowAll,
   onShowMore,
 }: {
@@ -1614,6 +1676,7 @@ function OrganizeBoard({
   onDragStart: (id: string) => void;
   onMove: (sourceId: string, targetId: string) => void;
   onRotate: (id: string) => void;
+  onZoomPage: (pageNumber: number, rotateDegrees: number) => void;
   onShowAll: () => void;
   onShowMore: () => void;
 }) {
@@ -1692,6 +1755,13 @@ function OrganizeBoard({
               {item.rotateDegrees ? <small>{item.rotateDegrees} deg</small> : null}
             </div>
             <div className="organize-actions">
+              <button
+                onClick={() => onZoomPage(item.sourcePage, item.rotateDegrees)}
+                title="View larger"
+                type="button"
+              >
+                <Eye size={15} />
+              </button>
               <button onClick={() => onRotate(item.id)} title="Rotate" type="button">
                 <RotateCw size={15} />
               </button>
@@ -1727,6 +1797,7 @@ function MergeBoard({
   onDragStart,
   onMove,
   onRemove,
+  onZoomFile,
 }: {
   files: string[];
   thumbnails: Record<string, string>;
@@ -1735,6 +1806,7 @@ function MergeBoard({
   onDragStart: (path: string) => void;
   onMove: (sourcePath: string, targetPath: string) => void;
   onRemove: (path: string) => void;
+  onZoomFile: (path: string) => void;
 }) {
   function startFileDrag(event: PointerEvent<HTMLElement>, path: string) {
     if ((event.target as HTMLElement).closest("button")) return;
@@ -1781,9 +1853,14 @@ function MergeBoard({
             </div>
             <div className="merge-card-footer">
               <span>{basename(path)}</span>
-              <button onClick={() => onRemove(path)} title="Remove" type="button">
-                <Trash2 size={14} />
-              </button>
+              <div className="merge-card-actions">
+                <button onClick={() => onZoomFile(path)} title="View larger" type="button">
+                  <Eye size={14} />
+                </button>
+                <button onClick={() => onRemove(path)} title="Remove" type="button">
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           </article>
         ))}
@@ -1855,6 +1932,57 @@ function SplitGroupsBoard({
         })}
       </div>
     </section>
+  );
+}
+
+function PageZoomModal({ zoom, onClose }: { zoom: ZoomState; onClose: () => void }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="zoom-overlay" onClick={onClose} role="presentation">
+      <div className="zoom-modal" onClick={(event) => event.stopPropagation()} role="dialog">
+        <header>
+          <div>
+            <strong>{zoom.title}</strong>
+            <span>Page {zoom.pageNumber}</span>
+          </div>
+          <button onClick={onClose} title="Close" type="button">
+            <X size={16} />
+          </button>
+        </header>
+        <div className="zoom-body">
+          {zoom.status === "loading" ? (
+            <div className="zoom-state">
+              <Loader2 className="spin" size={18} />
+              <span>Rendering page…</span>
+            </div>
+          ) : null}
+          {zoom.status === "error" ? (
+            <div className="zoom-state error">
+              <CircleAlert size={16} />
+              <span>{zoom.message ?? "Could not render this page."}</span>
+            </div>
+          ) : null}
+          {zoom.status === "ready" && zoom.src ? (
+            <img
+              alt={`Page ${zoom.pageNumber} enlarged`}
+              src={zoom.src}
+              style={
+                zoom.rotateDegrees
+                  ? { transform: `rotate(${zoom.rotateDegrees}deg)` }
+                  : undefined
+              }
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 

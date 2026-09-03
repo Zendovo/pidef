@@ -38,6 +38,9 @@ Required repository secret:
 - `TAURI_SIGNING_PRIVATE_KEY` — contents of the updater signing key file.
   The local copy lives at `~/.tauri/pidef-updater.key` (never commit it).
   The matching public key is embedded in `src-tauri/tauri.conf.json`.
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — set to the key password, or to an
+  empty value if the key was generated without one. Leaving it unset makes
+  Tauri try to prompt for a password, which fails on CI.
 
 Optional secrets (enable signed/notarized builds when present):
 

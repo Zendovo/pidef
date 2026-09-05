@@ -1,5 +1,6 @@
 use crate::{
     dependencies::{detect_dependencies, detect_dependencies_with_roots},
+    downsample_dct_images,
     page_ranges::qpdf_range,
     parse_page_ranges, CompressionProfile, DependencySet, JobRequest, JobResult, Operation,
     OrganizePage, PdfPreview, PdfPreviewPage, PdfPreviewRequest, PdfToolError, ProtectPermissions,
@@ -350,21 +351,90 @@ fn run_compress(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let mut command = hidden_command(&deps.qpdf.command);
-    for argument in compress_arguments(profile) {
-        command.arg(argument);
-    }
-    command.arg("--").arg(input).arg(output);
-    let warnings = run_command_with_warnings(command).map_err(|error| match error {
-        PdfToolError::ConversionFailed(message) if message.to_lowercase().contains("password") => {
-            PdfToolError::InvalidPassword
+    let direct_pass = || {
+        let mut command = hidden_command(&deps.qpdf.command);
+        for argument in compress_arguments(profile) {
+            command.arg(argument);
         }
-        other => other,
-    })?;
+        command.arg("--").arg(input).arg(output);
+        run_command_with_warnings(command)
+    };
+
+    let warnings = match profile.image_settings() {
+        None => direct_pass().map_err(map_password_error)?,
+        Some(settings) => {
+            match optimize_and_compress(request, &deps.qpdf.command, input, output, profile, settings)
+            {
+                Ok(warnings) => warnings,
+                Err(error) => {
+                    // Never fail the job because the image optimizer could not
+                    // run; fall back to the plain qpdf pass.
+                    let mut warnings = vec![format!("Image optimization skipped: {error}")];
+                    warnings.extend(direct_pass().map_err(map_password_error)?);
+                    warnings
+                }
+            }
+        }
+    };
 
     let mut result = result_for(request, &[output.clone()], &[input.to_path_buf()])?;
     result.warnings = warnings;
     Ok(result)
+}
+
+fn map_password_error(error: PdfToolError) -> PdfToolError {
+    match error {
+        PdfToolError::ConversionFailed(message) if message.to_lowercase().contains("password") => {
+            PdfToolError::InvalidPassword
+        }
+        other => other,
+    }
+}
+
+/// Stages the PDF through qdf (uncompressed, predictable layout), downsamples
+/// oversized JPEG images, then runs the regular qpdf compression pass.
+fn optimize_and_compress(
+    request: &JobRequest,
+    qpdf: &str,
+    input: &Path,
+    output: &Path,
+    profile: CompressionProfile,
+    settings: crate::ImageOptimizeSettings,
+) -> Result<Vec<String>, PdfToolError> {
+    let stage_dir = env::temp_dir().join("pidef").join(request.id.to_string());
+    fs::create_dir_all(&stage_dir)?;
+    let staged = stage_dir.join("optimize-source.pdf");
+
+    let mut stage_command = hidden_command(qpdf);
+    stage_command
+        .arg("--qdf")
+        .arg("--object-streams=disable")
+        .arg("--decode-level=generalized")
+        .arg("--")
+        .arg(input)
+        .arg(&staged);
+    run_command(stage_command)?;
+
+    let downsample_result = downsample_dct_images(&staged, &settings);
+
+    let mut final_command = hidden_command(qpdf);
+    for argument in compress_arguments(profile) {
+        final_command.arg(argument);
+    }
+    final_command.arg("--").arg(&staged).arg(output);
+    let mut warnings = run_command_with_warnings(final_command)?;
+    let _ = fs::remove_file(&staged);
+
+    match downsample_result {
+        Ok(0) => {}
+        Ok(count) => warnings.push(format!(
+            "Downsampled {count} image{} to about {} DPI",
+            if count == 1 { "" } else { "s" },
+            settings.target_dpi as u32
+        )),
+        Err(error) => warnings.push(format!("Image optimization skipped: {error}")),
+    }
+    Ok(warnings)
 }
 
 fn compress_arguments(profile: CompressionProfile) -> Vec<&'static str> {
@@ -653,7 +723,7 @@ struct JpegInfo {
     components: u8,
 }
 
-fn build_jpg_pdf(
+pub fn build_jpg_pdf(
     inputs: &[PathBuf],
     page_size: &str,
     fit_mode: &str,

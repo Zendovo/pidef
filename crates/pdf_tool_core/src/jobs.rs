@@ -99,6 +99,24 @@ impl CompressionProfile {
             CompressionProfile::Small => "Small",
         }
     }
+
+    /// Image resampling targets for the lossy presets. `None` keeps the
+    /// preset fully lossless.
+    pub fn image_settings(self) -> Option<crate::ImageOptimizeSettings> {
+        match self {
+            CompressionProfile::Safe => None,
+            CompressionProfile::Balanced => Some(crate::ImageOptimizeSettings {
+                target_dpi: 150.0,
+                trigger_dpi: 225.0,
+                jpeg_quality: 85,
+            }),
+            CompressionProfile::Small => Some(crate::ImageOptimizeSettings {
+                target_dpi: 100.0,
+                trigger_dpi: 150.0,
+                jpeg_quality: 65,
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

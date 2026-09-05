@@ -448,6 +448,8 @@ export function App() {
 
     rememberOpenedFiles(paths);
 
+    invalidateToolJobs(selectedToolId);
+
     if (selectedTool.needsMultipleInputs) {
       setForm((current) => ({
         ...current,
@@ -458,7 +460,12 @@ export function App() {
     }
   }
 
+  function invalidateToolJobs(tool: ToolId) {
+    setJobs((current) => current.filter((job) => job.tool !== tool));
+  }
+
   function removeFile(path: string) {
+    invalidateToolJobs(selectedToolId);
     if (selectedTool.needsMultipleInputs) {
       setForm((current) => ({
         ...current,
@@ -467,6 +474,18 @@ export function App() {
     } else {
       setForm((current) => ({ ...current, input: "" }));
     }
+  }
+
+  function startOver() {
+    setForm(initialForm(selectedTool));
+    invalidateToolJobs(selectedToolId);
+    setOrganizeItems([]);
+    setPdfPreview(null);
+    setPreviewError(null);
+    setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
+    setMergePreviews({});
+    setSourceFileSize(null);
+    setIsAddFileMenuOpen(false);
   }
 
   function removeCommandFile(path: string) {
@@ -553,25 +572,6 @@ export function App() {
             : job,
         ),
       );
-
-      if (selectedToolId === "compressPdf") {
-        return;
-      }
-
-      const completedJob: JobState = {
-        ...newJob,
-        status: "complete",
-        message: completeMessage,
-        result,
-      };
-      const saved = await saveJobOutput(completedJob);
-      if (!saved) {
-        setJobs((current) =>
-          current.map((job) =>
-            job.id === id ? { ...job, message: "Ready to save." } : job,
-          ),
-        );
-      }
     } catch (error) {
       setJobs((current) =>
         current.map((job) =>
@@ -618,12 +618,9 @@ export function App() {
   }
 
   async function saveAsCurrentOutput() {
-    if (latestVisibleJob?.result) {
-      await saveJobOutput(latestVisibleJob);
-      return;
+    if (activeJob?.result) {
+      await saveJobOutput(activeJob);
     }
-
-    await runSelectedJob();
   }
 
   function markSaved(jobId: string, _destination: string, tool: ToolId | null) {
@@ -662,7 +659,8 @@ export function App() {
     selectedToolId === "organizePdf" ? canRun && organizeItems.length > 0 : canRun;
   const isSettingsView = activeView === "settings";
   const isHomeView = activeView === "home";
-  const latestVisibleJob = jobs.find((job) => job.tool === selectedToolId) ?? jobs[0] ?? null;
+  const activeJob = jobs.find((job) => job.tool === selectedToolId) ?? null;
+  const hasOutput = Boolean(activeJob?.status === "complete" && activeJob.result);
   const splitGroups = useMemo(
     () =>
       selectedToolId === "splitPdf"
@@ -900,51 +898,61 @@ export function App() {
                 <RuntimeInfo dependencies={dependencyList} />
               </div>
 
-              {disabledReason ? (
-                <div className="notice warning">
-                  <CircleAlert size={18} />
-                  <span>{availabilityMessage(disabledReason)}</span>
-                </div>
-              ) : null}
-
-              {hasSelectedFiles ? (
-                <SelectedFilesPanel
-                  files={selectedFiles}
-                  multiple={selectedTool.needsMultipleInputs}
-                  recentFiles={recentFiles.slice(0, 5)}
-                  onAddFile={pickFiles}
-                  onOpenFile={pickFiles}
-                  onPickRecentFile={(path) => applySelectedFiles([path])}
-                  onRemove={removeFile}
-                  isAddFileMenuOpen={isAddFileMenuOpen}
-                  onAddFileMenuOpenChange={setIsAddFileMenuOpen}
+              {hasOutput && activeJob ? (
+                <OutputPanel
+                  job={activeJob}
+                  onSaveAs={() => void saveAsCurrentOutput()}
+                  onStartOver={startOver}
                 />
               ) : (
-                <button className="save-button" onClick={pickFiles} type="button">
-                  <FilePlus2 size={16} />
-                  Open...
-                </button>
+                <>
+                  {disabledReason ? (
+                    <div className="notice warning">
+                      <CircleAlert size={18} />
+                      <span>{availabilityMessage(disabledReason)}</span>
+                    </div>
+                  ) : null}
+
+                  {hasSelectedFiles ? (
+                    <SelectedFilesPanel
+                      files={selectedFiles}
+                      multiple={selectedTool.needsMultipleInputs}
+                      recentFiles={recentFiles.slice(0, 5)}
+                      onAddFile={pickFiles}
+                      onOpenFile={pickFiles}
+                      onPickRecentFile={(path) => applySelectedFiles([path])}
+                      onRemove={removeFile}
+                      isAddFileMenuOpen={isAddFileMenuOpen}
+                      onAddFileMenuOpenChange={setIsAddFileMenuOpen}
+                    />
+                  ) : (
+                    <button className="save-button" onClick={pickFiles} type="button">
+                      <FilePlus2 size={16} />
+                      Open...
+                    </button>
+                  )}
+
+                  <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
+
+                  {selectedToolId === "compressPdf" && form.input ? (
+                    <p className="source-size-note">
+                      <strong>{sourceFileSize ? formatBytes(sourceFileSize) : "—"}</strong>
+                      <span>current file size</span>
+                    </p>
+                  ) : null}
+
+                  <button
+                    className="run-button"
+                    type="button"
+                    disabled={!canRunSelectedTool}
+                    onClick={() => void runSelectedJob()}
+                  >
+                    <ArrowRight size={16} />
+                    {runActionLabel(selectedToolId)}
+                  </button>
+                  <CurrentJobStatus job={activeJob} />
+                </>
               )}
-
-              <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
-
-              {selectedToolId === "compressPdf" && form.input ? (
-                <p className="source-size-note">
-                  <strong>{sourceFileSize ? formatBytes(sourceFileSize) : "—"}</strong>
-                  <span>current file size</span>
-                </p>
-              ) : null}
-
-              <button
-                className="run-button"
-                type="button"
-                disabled={!canRunSelectedTool}
-                onClick={() => void saveAsCurrentOutput()}
-              >
-                <Download size={16} />
-                Save As...
-              </button>
-              <CurrentJobStatus job={latestVisibleJob} />
             </aside>
           </div>
         )}
@@ -1375,31 +1383,68 @@ function SelectedFileStage({ files }: { files: string[] }) {
 function CurrentJobStatus({ job }: {
   job: JobState | null;
 }) {
-  if (!job || (job.status === "complete" && job.tool !== "compressPdf")) return null;
-
-  const summary = job.result ? compressionSummary(job.result) : null;
+  if (!job || job.status === "complete") return null;
 
   return (
     <section className={`current-job ${job.status}`}>
       <div>
         <strong>{job.title}</strong>
         <small>{job.message}</small>
-        {job.status === "complete" && summary ? (
-          <span className="job-size-summary">{summary}</span>
-        ) : null}
       </div>
-      {job.status === "running" ? (
-        <Loader2 className="spin" size={16} />
-      ) : (
-        <CheckCircle2 size={16} className="ok" />
-      )}
-      {job.result && job.status === "running" ? (
+      {job.status === "running" ? <Loader2 className="spin" size={16} /> : null}
+      {job.result ? (
         <p className="job-output-summary">
           {job.result.outputs.length === 1
             ? "1 output file is ready"
             : `${job.result.outputs.length} output files are ready`}
         </p>
       ) : null}
+    </section>
+  );
+}
+
+function OutputPanel({
+  job,
+  onSaveAs,
+  onStartOver,
+}: {
+  job: JobState;
+  onSaveAs: () => void;
+  onStartOver: () => void;
+}) {
+  const result = job.result;
+  if (!result) return null;
+  const single = result.outputs.length === 1;
+  const sizeSummary =
+    job.tool === "compressPdf"
+      ? null
+      : result.outputBytes
+        ? formatBytes(result.outputBytes)
+        : null;
+
+  return (
+    <section className="output-panel">
+      <div className="output-heading">
+        <CheckCircle2 size={18} className="ok" />
+        <div>
+          <strong>{job.title} complete</strong>
+          <small>{job.message}</small>
+        </div>
+      </div>
+      <div className="output-meta">
+        <span>
+          {single ? basename(result.outputs[0]) : `${result.outputs.length} files ready`}
+        </span>
+        {sizeSummary ? <small>{sizeSummary}</small> : null}
+      </div>
+      <button className="save-button" onClick={onSaveAs} type="button">
+        <Download size={15} />
+        Save As…
+      </button>
+      <button className="start-over-button" onClick={onStartOver} type="button">
+        <RefreshCw size={15} />
+        Start over
+      </button>
     </section>
   );
 }
@@ -2154,10 +2199,33 @@ function outputFilters(tool: ToolId) {
 
 function jobCompleteMessage(tool: ToolId, result: JobResult) {
   if (tool === "compressPdf") {
-    const summary = compressionSummary(result);
-    if (summary) return `${summary}. Choose where to save it.`;
+    return compressionSummary(result) ?? "Output ready.";
   }
-  return "Generated. Choose where to save it.";
+  return "Output ready.";
+}
+
+function runActionLabel(tool: ToolId) {
+  switch (tool) {
+    case "mergePdf":
+      return "Merge PDFs";
+    case "splitPdf":
+      return "Split PDF";
+    case "organizePdf":
+      return "Apply changes";
+    case "compressPdf":
+      return "Compress PDF";
+    case "pdfToJpg":
+      return "Export JPGs";
+    case "jpgToPdf":
+      return "Create PDF";
+    case "pptToPdf":
+    case "wordToPdf":
+      return "Convert to PDF";
+    case "unlockPdf":
+      return "Unlock PDF";
+    case "protectPdf":
+      return "Protect PDF";
+  }
 }
 
 function compressionSummary(result: JobResult) {

@@ -351,35 +351,116 @@ fn run_compress(
 ) -> Result<JobResult, PdfToolError> {
     require(&deps.qpdf)?;
     let output = output_path(request)?;
-    let direct_pass = || {
-        let mut command = hidden_command(&deps.qpdf.command);
-        for argument in compress_arguments(profile) {
-            command.arg(argument);
-        }
-        command.arg("--").arg(input).arg(output);
-        run_command_with_warnings(command)
-    };
+    let stage_dir = env::temp_dir().join("pidef").join(request.id.to_string());
+    fs::create_dir_all(&stage_dir)?;
 
-    let warnings = match profile.image_settings() {
-        None => direct_pass().map_err(map_password_error)?,
-        Some(settings) => {
-            match optimize_and_compress(request, &deps.qpdf.command, input, output, profile, settings)
-            {
-                Ok(warnings) => warnings,
-                Err(error) => {
-                    // Never fail the job because the image optimizer could not
-                    // run; fall back to the plain qpdf pass.
-                    let mut warnings = vec![format!("Image optimization skipped: {error}")];
-                    warnings.extend(direct_pass().map_err(map_password_error)?);
-                    warnings
+    let mut warnings: Vec<String> = Vec::new();
+    let input_bytes = fs::metadata(input).ok().map(|metadata| metadata.len());
+
+    // Attempt 1: the full preset pass (image optimization when applicable,
+    // plus stream recompression).
+    let full_candidate = stage_dir.join("candidate-preset.pdf");
+    let full_pass = match profile.image_settings() {
+        None => qpdf_pass(
+            &deps.qpdf.command,
+            &compress_arguments(profile),
+            input,
+            &full_candidate,
+        )
+        .map_err(map_password_error),
+        Some(settings) => optimize_and_compress(
+            request,
+            &deps.qpdf.command,
+            input,
+            &full_candidate,
+            profile,
+            settings,
+        ),
+    };
+    let full_warnings = match full_pass {
+        Ok(pass_warnings) => pass_warnings,
+        Err(error) => {
+            if profile.image_settings().is_some() {
+                warnings.push(format!("Image optimization skipped: {error}"));
+            }
+            qpdf_pass(
+                &deps.qpdf.command,
+                &compress_arguments(profile),
+                input,
+                &full_candidate,
+            )
+            .map_err(map_password_error)?
+        }
+    };
+    warnings.extend(full_warnings);
+
+    // Never ship a file larger than the input: fall back to a conservative
+    // structural pass that leaves original streams untouched, then to the
+    // original file itself.
+    let conservative_candidate = stage_dir.join("candidate-conservative.pdf");
+    let mut best: &Path = &full_candidate;
+    if !is_smaller(best, input_bytes) {
+        match qpdf_pass(
+            &deps.qpdf.command,
+            &compress_arguments(CompressionProfile::Safe),
+            input,
+            &conservative_candidate,
+        )
+        .map_err(map_password_error)
+        {
+            Ok(conservative_warnings) if is_smaller(&conservative_candidate, input_bytes) => {
+                warnings.extend(conservative_warnings);
+                best = &conservative_candidate;
+            }
+            Ok(_) => {}
+            Err(error) => {
+                // The conservative pass is a bonus attempt; keep the full
+                // candidate even if it grew, and note the failure.
+                if !error.to_string().to_lowercase().contains("password") {
+                    warnings.push(format!("Structural fallback skipped: {error}"));
                 }
             }
         }
-    };
+    }
+
+    if is_smaller(best, input_bytes) {
+        fs::rename(best, &output).or_else(|_| fs::copy(best, &output).map(|_| ()))?;
+    } else {
+        warnings.push(
+            "This PDF is already well optimized; the original was kept unchanged.".to_string(),
+        );
+        fs::copy(input, output)?;
+    }
+    let _ = fs::remove_file(&full_candidate);
+    let _ = fs::remove_file(&conservative_candidate);
 
     let mut result = result_for(request, &[output.clone()], &[input.to_path_buf()])?;
     result.warnings = warnings;
     Ok(result)
+}
+
+fn is_smaller(candidate: &Path, input_bytes: Option<u64>) -> bool {
+    let Some(input_bytes) = input_bytes else {
+        return false;
+    };
+    fs::metadata(candidate)
+        .ok()
+        .map(|metadata| metadata.len() < input_bytes)
+        .unwrap_or(false)
+}
+
+fn qpdf_pass(
+    qpdf: &str,
+    arguments: &[&str],
+    input: &Path,
+    output: &Path,
+) -> Result<Vec<String>, PdfToolError> {
+    let mut command = hidden_command(qpdf);
+    for argument in arguments {
+        command.arg(argument);
+    }
+    command.arg("--").arg(input).arg(output);
+    run_command_with_warnings(command)
 }
 
 fn map_password_error(error: PdfToolError) -> PdfToolError {
@@ -438,30 +519,35 @@ fn optimize_and_compress(
 }
 
 fn compress_arguments(profile: CompressionProfile) -> Vec<&'static str> {
-    let mut arguments = vec![
-        "--decode-level=generalized",
-        "--object-streams=generate",
-        "--recompress-flate",
-        "--compression-level=9",
-    ];
-
     match profile {
-        CompressionProfile::Safe => {}
-        CompressionProfile::Balanced => {
-            arguments.push("--optimize-images");
-            arguments.push("--jpeg-quality=85");
-            arguments.push("--oi-min-width=128");
-            arguments.push("--oi-min-height=128");
-        }
-        CompressionProfile::Small => {
-            arguments.push("--optimize-images");
-            arguments.push("--jpeg-quality=65");
-            arguments.push("--oi-min-width=64");
-            arguments.push("--oi-min-height=64");
+        // Purely structural: original streams are kept byte-for-byte, so the
+        // result can never render differently.
+        CompressionProfile::Safe => vec!["--object-streams=generate"],
+        CompressionProfile::Balanced | CompressionProfile::Small => {
+            let mut arguments = vec![
+                "--decode-level=generalized",
+                "--object-streams=generate",
+                "--recompress-flate",
+                "--compression-level=9",
+            ];
+            match profile {
+                CompressionProfile::Balanced => {
+                    arguments.push("--optimize-images");
+                    arguments.push("--jpeg-quality=85");
+                    arguments.push("--oi-min-width=128");
+                    arguments.push("--oi-min-height=128");
+                }
+                CompressionProfile::Small => {
+                    arguments.push("--optimize-images");
+                    arguments.push("--jpeg-quality=65");
+                    arguments.push("--oi-min-width=64");
+                    arguments.push("--oi-min-height=64");
+                }
+                CompressionProfile::Safe => unreachable!(),
+            }
+            arguments
         }
     }
-
-    arguments
 }
 
 fn run_pdf_to_jpg(
@@ -946,11 +1032,10 @@ mod tests {
     }
 
     #[test]
-    fn safe_profile_uses_only_lossless_arguments() {
+    fn safe_profile_keeps_original_streams_intact() {
         let arguments = compress_arguments(CompressionProfile::Safe);
-        assert!(arguments.contains(&"--object-streams=generate"));
-        assert!(arguments.contains(&"--recompress-flate"));
-        assert!(arguments.contains(&"--compression-level=9"));
+        assert_eq!(arguments, vec!["--object-streams=generate"]);
+        assert!(!arguments.contains(&"--recompress-flate"));
         assert!(!arguments.contains(&"--optimize-images"));
     }
 

@@ -27,7 +27,11 @@ pub struct JobRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum Operation {
     MergePdf {
         inputs: Vec<PathBuf>,
@@ -201,5 +205,66 @@ pub enum PdfToolError {
 impl From<std::io::Error> for PdfToolError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserializes_camel_case_fields_from_frontend() {
+        let split: Operation = serde_json::from_str(
+            r#"{"kind":"splitPdf","input":"/tmp/a.pdf","ranges":"1, 2-3","outputPattern":"split-{n}.pdf"}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            split,
+            Operation::SplitPdf { output_pattern, .. } if output_pattern == "split-{n}.pdf"
+        ));
+
+        let pdf_to_jpg: Operation = serde_json::from_str(
+            r#"{"kind":"pdfToJpg","input":"/tmp/a.pdf","dpi":200,"firstPage":null,"lastPage":null,"quality":90}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            pdf_to_jpg,
+            Operation::PdfToJpg { first_page: None, last_page: None, .. }
+        ));
+
+        let protect: Operation = serde_json::from_str(
+            r#"{"kind":"protectPdf","input":"/tmp/a.pdf","userPassword":"u","ownerPassword":"o","permissions":{"allowPrinting":true,"allowCopying":false,"allowModification":false}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            protect,
+            Operation::ProtectPdf {
+                permissions: ProtectPermissions { allow_copying: false, .. },
+                ..
+            }
+        ));
+
+        let organize_page: OrganizePage =
+            serde_json::from_str(r#"{"sourcePage":3,"rotateDegrees":90}"#).unwrap();
+        assert_eq!(organize_page.source_page, 3);
+    }
+
+    #[test]
+    fn serializes_camel_case_fields_round_trip() {
+        let operation = Operation::ProtectPdf {
+            input: "/tmp/a.pdf".into(),
+            user_password: "u".into(),
+            owner_password: "o".into(),
+            permissions: ProtectPermissions {
+                allow_printing: true,
+                allow_copying: true,
+                allow_modification: false,
+            },
+        };
+        let json = serde_json::to_string(&operation).unwrap();
+        assert!(json.contains("userPassword"));
+        assert!(json.contains("allowPrinting"));
+        let round_trip: Operation = serde_json::from_str(&json).unwrap();
+        assert_eq!(serde_json::to_value(&round_trip).unwrap(), serde_json::to_value(&operation).unwrap());
     }
 }

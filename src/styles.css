@@ -2628,21 +2628,6 @@ textarea,
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .drop-action {
-    transition: none;
-  }
-
-  .home-orb {
-    animation: none;
-  }
-
-  .home-drop-action:hover {
-    animation: none;
-    background-position: 50% 50%;
-  }
-}
-
 /* ===========================================================================
    Editorial home (Editorial Air / Nocturne Editorial)
    =========================================================================== */

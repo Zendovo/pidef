@@ -2660,7 +2660,7 @@ textarea,
 
 .home-orb {
   border-radius: 999px;
-  filter: blur(86px);
+  filter: blur(72px);
   pointer-events: none;
   position: absolute;
   will-change: transform;
@@ -2668,7 +2668,7 @@ textarea,
 }
 
 .home-orb-a {
-  animation: orb-drift-a 9s ease-in-out -2s infinite;
+  animation: orb-drift-a 7s ease-in-out -2s infinite;
   background: rgba(200, 184, 224, 0.5);
   height: 480px;
   left: -240px;
@@ -2677,7 +2677,7 @@ textarea,
 }
 
 .home-orb-b {
-  animation: orb-drift-b 11s ease-in-out -7s infinite;
+  animation: orb-drift-b 8s ease-in-out -5s infinite;
   background: rgba(167, 229, 211, 0.42);
   height: 460px;
   left: 38%;
@@ -2686,7 +2686,7 @@ textarea,
 }
 
 .home-orb-c {
-  animation: orb-drift-c 10s ease-in-out -5s infinite;
+  animation: orb-drift-c 6.5s ease-in-out -3s infinite;
   background: rgba(244, 197, 168, 0.48);
   height: 440px;
   right: -160px;
@@ -2695,7 +2695,7 @@ textarea,
 }
 
 .home-orb-d {
-  animation: orb-drift-d 12s ease-in-out -9s infinite;
+  animation: orb-drift-d 9s ease-in-out -6s infinite;
   background: rgba(200, 184, 224, 0.42);
   height: 420px;
   left: 60px;
@@ -2704,7 +2704,7 @@ textarea,
 }
 
 .home-orb-e {
-  animation: orb-drift-e 8s ease-in-out -4s infinite;
+  animation: orb-drift-e 6s ease-in-out -2.5s infinite;
   background: rgba(168, 200, 232, 0.42);
   height: 380px;
   left: 560px;
@@ -2718,15 +2718,15 @@ textarea,
   }
 
   25% {
-    transform: translate(54px, -40px) scale(1.04);
+    transform: translate(96px, -72px) scale(1.07);
   }
 
   50% {
-    transform: translate(84px, 22px) scale(1.06);
+    transform: translate(150px, 36px) scale(1.1);
   }
 
   75% {
-    transform: translate(26px, 58px) scale(0.97);
+    transform: translate(46px, 104px) scale(0.93);
   }
 
   100% {
@@ -2740,15 +2740,15 @@ textarea,
   }
 
   25% {
-    transform: translate(-52px, -18px) scale(1.05);
+    transform: translate(-92px, -34px) scale(1.08);
   }
 
   50% {
-    transform: translate(-76px, 44px) scale(1.03);
+    transform: translate(-136px, 78px) scale(1.05);
   }
 
   75% {
-    transform: translate(-18px, 62px) scale(0.97);
+    transform: translate(-32px, 112px) scale(0.93);
   }
 
   100% {
@@ -2762,15 +2762,15 @@ textarea,
   }
 
   25% {
-    transform: translate(40px, 46px) scale(1.05);
+    transform: translate(72px, 82px) scale(1.07);
   }
 
   50% {
-    transform: translate(-38px, 70px) scale(1.02);
+    transform: translate(-68px, 128px) scale(1.03);
   }
 
   75% {
-    transform: translate(-62px, 18px) scale(0.96);
+    transform: translate(-112px, 32px) scale(0.92);
   }
 
   100% {
@@ -2784,15 +2784,15 @@ textarea,
   }
 
   25% {
-    transform: translate(58px, 8px) scale(1.04);
+    transform: translate(104px, 14px) scale(1.06);
   }
 
   50% {
-    transform: translate(88px, 48px) scale(1.06);
+    transform: translate(158px, 86px) scale(1.09);
   }
 
   75% {
-    transform: translate(24px, 66px) scale(0.97);
+    transform: translate(42px, 120px) scale(0.93);
   }
 
   100% {
@@ -2806,15 +2806,15 @@ textarea,
   }
 
   25% {
-    transform: translate(-20px, -58px) scale(1.06);
+    transform: translate(-36px, -104px) scale(1.09);
   }
 
   50% {
-    transform: translate(52px, -40px) scale(1.03);
+    transform: translate(94px, -72px) scale(1.05);
   }
 
   75% {
-    transform: translate(70px, 28px) scale(0.96);
+    transform: translate(126px, 50px) scale(0.92);
   }
 
   100% {

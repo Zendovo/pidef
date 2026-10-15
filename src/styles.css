@@ -2633,6 +2633,10 @@ textarea,
     transition: none;
   }
 
+  .home-orb {
+    animation: none;
+  }
+
   .home-drop-action:hover {
     animation: none;
     background-position: 50% 50%;
@@ -2678,6 +2682,7 @@ textarea,
 }
 
 .home-orb-a {
+  animation: orb-drift-a 21s ease-in-out -4s infinite alternate;
   background: rgba(200, 184, 224, 0.5);
   height: 480px;
   left: -240px;
@@ -2686,6 +2691,7 @@ textarea,
 }
 
 .home-orb-b {
+  animation: orb-drift-b 17s ease-in-out -9s infinite alternate;
   background: rgba(167, 229, 211, 0.42);
   height: 460px;
   left: 38%;
@@ -2694,6 +2700,7 @@ textarea,
 }
 
 .home-orb-c {
+  animation: orb-drift-c 19s ease-in-out -13s infinite alternate;
   background: rgba(244, 197, 168, 0.48);
   height: 440px;
   right: -160px;
@@ -2702,19 +2709,91 @@ textarea,
 }
 
 .home-orb-d {
+  animation: orb-drift-d 23s ease-in-out -7s infinite alternate;
   background: rgba(200, 184, 224, 0.42);
   height: 420px;
-  left: -120px;
+  left: 60px;
   top: 56%;
   width: 420px;
 }
 
 .home-orb-e {
+  animation: orb-drift-e 18s ease-in-out -15s infinite alternate;
   background: rgba(168, 200, 232, 0.42);
   height: 380px;
-  left: 120px;
-  top: 72%;
+  left: 560px;
+  top: 73%;
   width: 380px;
+}
+
+@keyframes orb-drift-a {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(30px, -24px);
+  }
+
+  100% {
+    transform: translate(-20px, 22px);
+  }
+}
+
+@keyframes orb-drift-b {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-28px, 20px);
+  }
+
+  100% {
+    transform: translate(24px, -18px);
+  }
+}
+
+@keyframes orb-drift-c {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(22px, 26px);
+  }
+
+  100% {
+    transform: translate(-26px, -14px);
+  }
+}
+
+@keyframes orb-drift-d {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(34px, 18px);
+  }
+
+  100% {
+    transform: translate(-16px, -24px);
+  }
+}
+
+@keyframes orb-drift-e {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-24px, -26px);
+  }
+
+  100% {
+    transform: translate(28px, 16px);
+  }
 }
 
 .home-hero,

@@ -2661,22 +2661,3 @@ textarea,
     background-position: 50% 50%;
   }
 }
-
-/* Run button: existing gradient stays as the underlay; the liquid glass
-   layer provides refraction, edge highlights, and elasticity. */
-.run-button.run-button-shell {
-  box-shadow: none;
-  padding: 0;
-  position: relative;
-  width: 100%;
-}
-
-.run-button.run-button-shell .glass {
-  width: 100%;
-}
-
-.run-button.run-button-glass {
-  background: transparent;
-  box-shadow: none;
-  width: 100%;
-}

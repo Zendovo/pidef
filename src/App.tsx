@@ -1,5 +1,4 @@
 import { getVersion } from "@tauri-apps/api/app";
-import LiquidGlass from "liquid-glass-react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -100,7 +99,6 @@ export function App() {
     const stored = localStorage.getItem("appearance");
     return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
   });
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [dependencies, setDependencies] = useState<DependencySet | null>(null);
   const [operationOptions, setOperationOptions] = useState<OperationOptions[]>([]);
   const [form, setForm] = useState<FormState>(() => initialForm(toolById.mergePdf));
@@ -158,7 +156,6 @@ export function App() {
       document.documentElement.dataset.theme = resolved;
       document.documentElement.dataset.appearance = appearance;
       localStorage.setItem("appearance", appearance);
-      setResolvedTheme(resolved === "light" ? "light" : "dark");
     };
 
     applyAppearance();
@@ -954,7 +951,6 @@ export function App() {
 
                   <OperationRunButton
                     disabled={!canRunSelectedTool}
-                    overLight={resolvedTheme === "light"}
                     tool={selectedToolId}
                     onRun={() => void runSelectedJob()}
                   />
@@ -1312,45 +1308,17 @@ function SelectedFileStage({
 function OperationRunButton({
   tool,
   disabled,
-  overLight,
   onRun,
 }: {
   tool: ToolId;
   disabled: boolean;
-  overLight: boolean;
   onRun: () => void;
 }) {
-  const label = runActionLabel(tool);
-
-  if (disabled) {
-    return (
-      <button className="run-button" disabled type="button">
-        <ArrowRight size={16} />
-        {label}
-      </button>
-    );
-  }
-
   return (
-    <div className="run-button run-button-shell">
-      <LiquidGlass
-        aberrationIntensity={1.2}
-        blurAmount={0.08}
-        cornerRadius={8}
-        displacementScale={44}
-        elasticity={0.2}
-        mode="standard"
-        overLight={overLight}
-        padding="0px"
-        saturation={128}
-        style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: "100%" }}
-      >
-        <button className="run-button run-button-glass" onClick={onRun} type="button">
-          <ArrowRight size={16} />
-          {label}
-        </button>
-      </LiquidGlass>
-    </div>
+    <button className="run-button" disabled={disabled} onClick={onRun} type="button">
+      <ArrowRight size={16} />
+      {runActionLabel(tool)}
+    </button>
   );
 }
 

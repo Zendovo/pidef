@@ -747,6 +747,13 @@ export function App() {
       </section>
 
       <section className={isHomeView ? "workspace workspace-home" : "workspace"}>
+        {isHomeView ? (
+          <div aria-hidden="true" className="home-orb-layer">
+            <div className="home-orb home-orb-a" />
+            <div className="home-orb home-orb-b" />
+            <div className="home-orb home-orb-c" />
+          </div>
+        ) : null}
         {!isHomeView ? (
           <header className="topbar">
             <div data-tauri-drag-region>
@@ -1103,14 +1110,15 @@ function HomeView({
   onSelectTool: (toolId: ToolId) => void;
   onShowHistory: () => void;
 }) {
-  const suggestions = commandCenterSuggestions(files).slice(0, 6);
+  const suggestions = [
+    ...commandCenterSuggestions(files),
+    ...tools.map((tool) => tool.id),
+  ]
+    .filter(unique)
+    .slice(0, 6);
 
   return (
     <section className="home-screen">
-      <div aria-hidden="true" className="home-orb home-orb-a" />
-      <div aria-hidden="true" className="home-orb home-orb-b" />
-      <div aria-hidden="true" className="home-orb home-orb-c" />
-
       <section className="home-hero">
         <h1>Welcome to Pidef</h1>
         <p>Fast, secure, local-first PDF processing. Your files never leave this machine.</p>
@@ -1187,7 +1195,6 @@ function HomeView({
                 <strong>{tool.title}</strong>
                 <small>{unavailableReason ? "Needs setup" : tool.description}</small>
                 <span className="home-action-badge">{tool.badge}</span>
-                <Icon className="home-action-watermark" size={92} strokeWidth={1.1} />
               </button>
             );
           })}

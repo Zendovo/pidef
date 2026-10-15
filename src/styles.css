@@ -751,26 +751,6 @@ textarea:focus {
   text-align: left;
 }
 
-.home-action::before {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--tool-accent) 14%, transparent),
-    transparent
-  );
-  background-repeat: no-repeat;
-  background-size: 46% 100%;
-  content: "";
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  transition: background-size 520ms cubic-bezier(0.22, 1, 0.36, 1);
-  z-index: 1;
-}
-
-.home-action:hover::before {
-  background-size: 115% 100%;
-}
-
 .home-action:hover {
   background: rgba(255, 255, 255, 0.72);
   border-color: color-mix(in srgb, var(--tool-accent) 44%, rgba(255, 255, 255, 0.66));
@@ -790,25 +770,6 @@ textarea:focus {
   background: color-mix(in srgb, var(--tool-accent) 14%, transparent);
   border-color: color-mix(in srgb, var(--tool-accent) 28%, transparent);
   color: var(--tool-accent);
-}
-
-.home-action-watermark {
-  color: var(--tool-accent);
-  opacity: 0.1;
-  pointer-events: none;
-  position: absolute;
-  right: 28px;
-  top: 50%;
-  transform: translateY(-50%) rotate(-8deg);
-  transition:
-    opacity 320ms ease,
-    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  z-index: 0;
-}
-
-.home-action:hover .home-action-watermark {
-  opacity: 0.32;
-  transform: translateY(-50%) rotate(-8deg) scale(1.14);
 }
 
 .home-action strong,
@@ -2537,14 +2498,6 @@ textarea,
   color: #3f3f46;
 }
 
-:root[data-theme="light"] .home-action-watermark {
-  opacity: 0.13;
-}
-
-:root[data-theme="light"] .home-action:hover .home-action-watermark {
-  opacity: 0.34;
-}
-
 :root[data-theme="light"] .home-drop-action:hover {
   animation: home-drop-drift 5.5s ease-in-out infinite alternate;
   background-color: rgba(255, 255, 255, 0.92);
@@ -2676,8 +2629,6 @@ textarea,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-action::before,
-  .home-action-watermark,
   .drop-action {
     transition: none;
   }
@@ -2694,12 +2645,28 @@ textarea,
 
 .workspace-home {
   grid-template-rows: minmax(0, 1fr);
+  padding: 0;
+  position: relative;
+}
+
+.home-orb-layer {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
 }
 
 .home-screen {
+  display: grid;
+  gap: 20px;
+  height: 100%;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 44px 44px 52px;
   position: relative;
+  z-index: 1;
 }
 
 .home-orb {
@@ -2907,7 +2874,7 @@ textarea,
 
 .home-action {
   align-content: start;
-  background: rgba(255, 255, 255, 0.88);
+  background: #ffffff;
   border: 1px solid #e7e5e4;
   border-radius: 14px;
   display: grid;
@@ -2915,12 +2882,17 @@ textarea,
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto 1fr auto;
   min-height: 158px;
-  padding: 15px;
+  padding: 16px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .home-action:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: #d6d3d1;
+  border-color: color-mix(in srgb, var(--tool-accent) 38%, #e7e5e4);
+  box-shadow: 0 14px 30px -22px rgba(12, 10, 9, 0.32);
+  transform: translateY(-1px);
 }
 
 .home-action .tool-icon {
@@ -3082,13 +3054,14 @@ textarea,
   }
 
   .home-action {
-    background: rgba(28, 26, 24, 0.86);
+    background: rgba(28, 26, 24, 0.92);
     border-color: rgba(245, 244, 240, 0.09);
   }
 
   .home-action:hover {
-    background: rgba(35, 32, 29, 0.96);
-    border-color: rgba(245, 244, 240, 0.16);
+    background: rgba(35, 32, 29, 0.98);
+    border-color: color-mix(in srgb, var(--tool-accent) 34%, rgba(245, 244, 240, 0.1));
+    box-shadow: 0 16px 32px -24px rgba(0, 0, 0, 0.7);
   }
 
   .home-action .tool-icon {
@@ -3185,13 +3158,12 @@ textarea,
 }
 
 :root[data-theme="light"] .home-action {
-  background: rgba(255, 255, 255, 0.88);
+  background: #ffffff;
   border-color: #e7e5e4;
 }
 
 :root[data-theme="light"] .home-action:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: #d6d3d1;
+  border-color: color-mix(in srgb, var(--tool-accent) 38%, #e7e5e4);
 }
 
 :root[data-theme="light"] .home-action .tool-icon {

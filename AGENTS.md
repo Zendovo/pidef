@@ -50,7 +50,7 @@ LibreOffice detection/conversion code was removed entirely.
 - Sidebar has a Home tab above a `TOOLS` separator.
 - Jobs were renamed/reworked toward History; avoid showing technical temp paths.
 - Only the Pidef brand and main operation/page headings should use serif italic styling.
-- Operation cards use per-tool colors, subtle background action icons, and matching hover/drop-zone tint. Hover animations: cards extend their existing accent gradient, the home drop area drifts a soft gradient, and tool drop areas displace their existing gradient.
+- Home tool cards are neutral plates with per-tool tinted icon chips and uppercase accent badges; hover tints the border, lifts the card, and accents the arrow. The home drop plate is a surface card with a pill CTA, and tool drop areas displace their existing gradient on hover.
 - Light and dark contrast have been actively tuned; keep checking both themes visually.
 
 ## Current Worktree State

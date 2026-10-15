@@ -746,32 +746,30 @@ export function App() {
         </button>
       </section>
 
-      <section className="workspace">
-        <header className="topbar">
-          <div data-tauri-drag-region>
-            <h2>
-              {isHomeView
-                ? "Pidef"
-                : activeView === "history"
-                ? "History"
-                : isSettingsView
-                  ? "Settings"
-                  : selectedTool.title}
-            </h2>
-            <p>
-              {isHomeView
-                ? "Drop files, choose an action, and keep moving."
-                : activeView === "history"
-                ? "Recent work, opened files, and saved outputs."
-                : isSettingsView
-                ? "Appearance and runtime diagnostics."
-                : selectedTool.description}
-            </p>
-          </div>
-          <button className="icon-button" onClick={refreshRuntime} type="button" title="Refresh">
-            <RefreshCw size={18} />
-          </button>
-        </header>
+      <section className={isHomeView ? "workspace workspace-home" : "workspace"}>
+        {!isHomeView ? (
+          <header className="topbar">
+            <div data-tauri-drag-region>
+              <h2>
+                {activeView === "history"
+                  ? "History"
+                  : isSettingsView
+                    ? "Settings"
+                    : selectedTool.title}
+              </h2>
+              <p>
+                {activeView === "history"
+                  ? "Recent work, opened files, and saved outputs."
+                  : isSettingsView
+                    ? "Appearance and runtime diagnostics."
+                    : selectedTool.description}
+              </p>
+            </div>
+            <button className="icon-button" onClick={refreshRuntime} type="button" title="Refresh">
+              <RefreshCw size={18} />
+            </button>
+          </header>
+        ) : null}
 
         {isHomeView ? (
           <HomeView
@@ -783,6 +781,7 @@ export function App() {
             onPickFiles={pickCommandCenterFiles}
             onRemoveFile={removeCommandFile}
             onSelectTool={(toolId) => activateTool(toolId, commandFiles)}
+            onShowHistory={() => setActiveView("history")}
           />
         ) : activeView === "history" ? (
           <HistoryView
@@ -1092,6 +1091,7 @@ function HomeView({
   onPickFiles,
   onRemoveFile,
   onSelectTool,
+  onShowHistory,
 }: {
   dragging: boolean;
   files: string[];
@@ -1100,22 +1100,47 @@ function HomeView({
   onOpenFile: (path: string) => void;
   onPickFiles: () => void;
   onRemoveFile: (path: string) => void;
-  onSelectTool: (tool: ToolId) => void;
+  onSelectTool: (toolId: ToolId) => void;
+  onShowHistory: () => void;
 }) {
-  const suggestions = commandCenterSuggestions(files);
+  const suggestions = commandCenterSuggestions(files).slice(0, 6);
 
   return (
     <section className="home-screen">
+      <div aria-hidden="true" className="home-orb home-orb-a" />
+      <div aria-hidden="true" className="home-orb home-orb-b" />
+      <div aria-hidden="true" className="home-orb home-orb-c" />
+
+      <section className="home-hero">
+        <h1>Welcome to Pidef</h1>
+        <p>Fast, secure, local-first PDF processing. Your files never leave this machine.</p>
+      </section>
+
       <section className={`home-drop-zone ${dragging ? "dragging" : ""}`}>
-        <button className="home-drop-action" onClick={onPickFiles} type="button">
-          <FilePlus2 size={28} />
-          <span>{files.length > 0 ? "Add or replace files" : "Drop files here or choose files"}</span>
-          <small>
+        <div className="home-drop-card">
+          <span className="home-drop-icon">
+            <FilePlus2 size={22} />
+          </span>
+          <h2>
             {files.length > 0
               ? `${files.length} ${files.length === 1 ? "file" : "files"} ready`
-              : "PDF and JPG files are supported"}
-          </small>
-        </button>
+              : "Drop your PDF files here"}
+          </h2>
+          <p>
+            {files.length > 0
+              ? "Pick an action below, or add more files to the workspace."
+              : "Process single files or select multiple pages. Everything stays on-device."}
+          </p>
+          <button className="home-drop-cta" onClick={onPickFiles} type="button">
+            <FilePlus2 size={15} />
+            {files.length > 0 ? "Add or replace files" : "Choose files"}
+          </button>
+          <div className="home-drop-chips">
+            <span>PDF</span>
+            <span>JPG</span>
+            <em>Processed locally — no uploads</em>
+          </div>
+        </div>
 
         {files.length > 0 ? (
           <div className="selected-files">
@@ -1134,11 +1159,11 @@ function HomeView({
 
       <section className="home-section">
         <div className="home-section-heading">
-          <h3>{files.length > 0 ? "Suggested Actions" : "Start With"}</h3>
+          <h3>{files.length > 0 ? "Suggested Actions" : "Primary Tools"}</h3>
           <span>{files.length > 0 ? "Based on selected files" : "Common PDF workflows"}</span>
         </div>
 
-        <div className="home-action-grid">
+        <div className="home-tool-grid">
           {suggestions.map((toolId) => {
             const tool = toolById[toolId];
             const Icon = tool.icon;
@@ -1156,14 +1181,13 @@ function HomeView({
                 type="button"
               >
                 <span className="tool-icon">
-                  <Icon size={18} />
+                  <Icon size={17} />
                 </span>
-                <span>
-                  <strong>{tool.title}</strong>
-                  <small>{unavailableReason ? "Needs setup" : tool.description}</small>
-                </span>
-                <ArrowRight size={17} />
-                <Icon className="home-action-watermark" size={82} strokeWidth={1.15} />
+                <ArrowRight className="home-action-arrow" size={16} />
+                <strong>{tool.title}</strong>
+                <small>{unavailableReason ? "Needs setup" : tool.description}</small>
+                <span className="home-action-badge">{tool.badge}</span>
+                <Icon className="home-action-watermark" size={92} strokeWidth={1.1} />
               </button>
             );
           })}
@@ -1173,11 +1197,13 @@ function HomeView({
       {recentFiles.length > 0 ? (
         <section className="home-section">
           <div className="home-section-heading">
-            <h3>Recent Files</h3>
-            <span>Open one in the Command Center</span>
+            <h3>Recent</h3>
+            <button className="home-section-link" onClick={onShowHistory} type="button">
+              View history
+            </button>
           </div>
           <div className="recent-list">
-            {recentFiles.slice(0, 8).map((path) => (
+            {recentFiles.slice(0, 4).map((path) => (
               <button className="recent-file" key={path} onClick={() => onOpenFile(path)} type="button">
                 <strong>{basename(path)}</strong>
                 <small>{path}</small>

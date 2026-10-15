@@ -45,7 +45,7 @@ LibreOffice detection/conversion code was removed entirely.
 
 ## Recent UX Decisions
 
-- Home screen is a Command Center, not a marketing page.
+- Home screen is an editorial Command Center: EB Garamond (bundled) display type with Inter UI type, warm Editorial Air (light) / Nocturne Editorial (dark) palettes from the Stitch "Modern PDF Workspace Redesign" project, atmospheric gradient orbs, a hero drop card with pill CTA, and 3-column tinted tool plates with per-tool badges. Tool accents were remapped to match the Stitch screens.
 - Sidebar stays visible on startup.
 - Sidebar has a Home tab above a `TOOLS` separator.
 - Jobs were renamed/reworked toward History; avoid showing technical temp paths.

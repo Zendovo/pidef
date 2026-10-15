@@ -25,6 +25,7 @@ export type ToolDefinition = {
   title: string;
   description: string;
   accent: string;
+  badge: string;
   icon: LucideIcon;
   needsMultipleInputs: boolean;
   outputHint: string;
@@ -63,9 +64,10 @@ export const tools: ToolDefinition[] = [
     title: "Merge PDF",
     description: "Combine multiple PDFs into one ordered file.",
     icon: Files,
-    accent: "#2563eb",
+    accent: "#3b82f6",
     needsMultipleInputs: true,
     outputHint: "/Users/hima/Desktop/merged.pdf",
+    badge: "Lossless stitching",
     defaults: { ...commonDefaults, output: "" },
   },
   {
@@ -73,9 +75,10 @@ export const tools: ToolDefinition[] = [
     title: "Split PDF",
     description: "Extract page ranges into separate PDFs.",
     icon: Scissors,
-    accent: "#b45309",
+    accent: "#8b5cf6",
     needsMultipleInputs: false,
     outputHint: "/Users/hima/Desktop/split-output-folder",
+    badge: "Instant page splitter",
     defaults: { ...commonDefaults, ranges: "1, 2-3" },
   },
   {
@@ -83,9 +86,10 @@ export const tools: ToolDefinition[] = [
     title: "Organize PDF",
     description: "Reorder, duplicate, rotate, or remove pages.",
     icon: Layers3,
-    accent: "#047857",
+    accent: "#14b8a6",
     needsMultipleInputs: false,
     outputHint: "/Users/hima/Desktop/organized.pdf",
+    badge: "Visual page ordering",
     defaults: { ...commonDefaults, ranges: "1,2,3" },
   },
   {
@@ -93,9 +97,10 @@ export const tools: ToolDefinition[] = [
     title: "Compress PDF",
     description: "Shrink file size with lossless or image-smart presets.",
     icon: Archive,
-    accent: "#7c3aed",
+    accent: "#f59e0b",
     needsMultipleInputs: false,
     outputHint: "/Users/hima/Desktop/compressed.pdf",
+    badge: "Smart image downsizing",
     defaults: commonDefaults,
   },
   {
@@ -103,9 +108,10 @@ export const tools: ToolDefinition[] = [
     title: "PDF to JPG",
     description: "Render PDF pages into high-quality JPG images.",
     icon: FileImage,
-    accent: "#db2777",
+    accent: "#f43f5e",
     needsMultipleInputs: false,
     outputHint: "/Users/hima/Desktop/pdf-images",
+    badge: "Export at any DPI",
     defaults: commonDefaults,
   },
   {
@@ -113,9 +119,10 @@ export const tools: ToolDefinition[] = [
     title: "JPG to PDF",
     description: "Turn ordered JPG images into one PDF.",
     icon: FileArchive,
-    accent: "#0891b2",
+    accent: "#06b6d4",
     needsMultipleInputs: true,
     outputHint: "/Users/hima/Desktop/images.pdf",
+    badge: "Build PDFs from photos",
     defaults: commonDefaults,
   },
   {
@@ -126,6 +133,7 @@ export const tools: ToolDefinition[] = [
     accent: "#ca8a04",
     needsMultipleInputs: false,
     outputHint: "/Users/hima/Desktop/unlocked.pdf",
+    badge: "Password-verified decrypt",
     defaults: commonDefaults,
   },
   {
@@ -133,9 +141,10 @@ export const tools: ToolDefinition[] = [
     title: "Protect PDF",
     description: "Encrypt a PDF and set basic permissions.",
     icon: FileLock,
-    accent: "#4338ca",
+    accent: "#6366f1",
     needsMultipleInputs: false,
     outputHint: "/Users/hima/Desktop/protected.pdf",
+    badge: "256-bit encryption",
     defaults: commonDefaults,
   },
 ];

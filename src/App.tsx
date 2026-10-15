@@ -9,7 +9,6 @@ import {
   FilePlus2,
   Files,
   Home,
-  Info,
   Loader2,
   RefreshCw,
   Settings,
@@ -50,6 +49,11 @@ type OrganizeItem = {
 type SplitGroup = {
   label: string;
   pages: number[];
+};
+type SplitPlan = {
+  groups: SplitGroup[];
+  effectiveRanges: string;
+  trimmed: boolean;
 };
 type ZoomState = {
   status: "loading" | "ready" | "error";
@@ -114,7 +118,6 @@ export function App() {
     ),
   );
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
-  const [isAddFileMenuOpen, setIsAddFileMenuOpen] = useState(false);
   const [mergePreviews, setMergePreviews] = useState<Record<string, string>>({});
   const [draggedMergePath, setDraggedMergePath] = useState<string | null>(null);
   const [sourceFileSize, setSourceFileSize] = useState<number | null>(null);
@@ -329,7 +332,7 @@ export function App() {
   const dependencyList = useMemo(
     () =>
       dependencies
-        ? [dependencies.qpdf, dependencies.pdfRenderer, dependencies.libreoffice]
+        ? [dependencies.qpdf, dependencies.pdfRenderer]
         : [],
     [dependencies],
   );
@@ -383,7 +386,6 @@ export function App() {
     setOrganizeItems([]);
     setPreviewError(null);
     setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
-    setIsAddFileMenuOpen(false);
     setZoomState(null);
   }
 
@@ -475,7 +477,6 @@ export function App() {
     setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
     setMergePreviews({});
     setSourceFileSize(null);
-    setIsAddFileMenuOpen(false);
   }
 
   function removeCommandFile(path: string) {
@@ -534,6 +535,12 @@ export function App() {
 
     const id = crypto.randomUUID();
     const request = buildRequest(id, selectedToolId, form, organizeItems);
+    if (selectedToolId === "splitPdf" && splitPlan) {
+      // Keep the job in sync with the groups shown in the preview: ranges
+      // past the last page are trimmed instead of failing in qpdf.
+      (request.operation as unknown as { ranges: string }).ranges =
+        splitPlan.effectiveRanges;
+    }
 
     const newJob: JobState = {
       id,
@@ -634,28 +641,34 @@ export function App() {
     );
   }
 
+  const splitPlan = useMemo(
+    () =>
+      selectedToolId === "splitPdf"
+        ? parseSplitPlan(form.ranges, pdfPreview?.pageCount ?? 0)
+        : null,
+    [selectedToolId, form.ranges, pdfPreview?.pageCount],
+  );
+  const splitGroups = splitPlan?.groups ?? null;
+  const splitPageGroups = useMemo(() => {
+    const pageToGroup = new Map<number, number>();
+    splitPlan?.groups.forEach((group, index) => {
+      group.pages.forEach((page) => pageToGroup.set(page, index + 1));
+    });
+    return pageToGroup;
+  }, [splitPlan]);
+
   const canRun = !disabledReason && selectedFiles.length > 0;
   const canRunSelectedTool =
-    selectedToolId === "organizePdf" ? canRun && organizeItems.length > 0 : canRun;
+    selectedToolId === "organizePdf"
+      ? canRun && organizeItems.length > 0
+      : selectedToolId === "splitPdf"
+        ? canRun && Boolean(splitPlan)
+        : canRun;
   const isSettingsView = activeView === "settings";
   const isHomeView = activeView === "home";
   const restorableRecentFiles = canReopenRecentFiles() ? recentFiles : [];
   const activeJob = jobs.find((job) => job.tool === selectedToolId) ?? null;
   const hasOutput = Boolean(activeJob?.status === "complete" && activeJob.result);
-  const splitGroups = useMemo(
-    () =>
-      selectedToolId === "splitPdf"
-        ? parseSplitGroups(form.ranges, pdfPreview?.pageCount ?? 0)
-        : null,
-    [selectedToolId, form.ranges, pdfPreview?.pageCount],
-  );
-  const splitPageGroups = useMemo(() => {
-    const pageToGroup = new Map<number, number>();
-    splitGroups?.forEach((group, index) => {
-      group.pages.forEach((page) => pageToGroup.set(page, index + 1));
-    });
-    return pageToGroup;
-  }, [splitGroups]);
 
   return (
     <main className={`app-shell ${isNativeSidebarCollapsed ? "native-sidebar-collapsed" : ""}`}>
@@ -790,15 +803,17 @@ export function App() {
           />
         ) : (
           <div className="workbench" style={{ "--tool-accent": selectedTool.accent } as CSSProperties}>
-            <section className={hasSelectedFiles ? "preview-stage" : "empty-stage"}>
+            <section
+              className={`${hasSelectedFiles ? "preview-stage" : "empty-stage"}${
+                selectedToolId === "splitPdf" && hasSelectedFiles ? " split-stage" : ""
+              }`}
+            >
               {!hasSelectedFiles ? (
                 <>
                   <FileDropZone
                     dragging={isDraggingFiles}
-                    files={selectedFiles}
                     multiple={selectedTool.needsMultipleInputs}
                     onPick={pickFiles}
-                    onRemove={removeFile}
                     title={
                       selectedTool.needsMultipleInputs
                         ? "Drop files here or choose files"
@@ -807,7 +822,12 @@ export function App() {
                   />
                   <RecentFiles files={restorableRecentFiles} onOpenFile={(path) => applySelectedFiles([path])} />
                 </>
-              ) : selectedToolId === "organizePdf" ? (
+              ) : (
+                <>
+                  {!selectedTool.needsMultipleInputs && form.input ? (
+                    <StageFileBar file={form.input} onRemove={removeFile} />
+                  ) : null}
+                  {selectedToolId === "organizePdf" ? (
                 <OrganizeBoard
                   items={organizeItems}
                   isLoading={isPreviewLoading}
@@ -842,6 +862,7 @@ export function App() {
                 />
               ) : selectedToolId === "splitPdf" ? (
                 <>
+                  <SplitGroupsBoard groups={splitGroups} preview={pdfPreview} />
                   <PdfPreviewGrid
                     preview={pdfPreview}
                     isLoading={isPreviewLoading}
@@ -854,7 +875,6 @@ export function App() {
                       setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
                     }
                   />
-                  <SplitGroupsBoard groups={splitGroups} preview={pdfPreview} />
                 </>
               ) : isPdfPreviewTool(selectedToolId) ? (
                 <PdfPreviewGrid
@@ -869,14 +889,15 @@ export function App() {
                   }
                 />
               ) : (
-                <SelectedFileStage files={selectedFiles} />
+                <SelectedFileStage files={selectedFiles} onRemove={removeFile} />
+              )}
+                </>
               )}
             </section>
 
             <aside className="options-panel">
               <div className="panel-heading">
                 <h3>Options</h3>
-                <RuntimeInfo dependencies={dependencyList} />
               </div>
 
               {hasOutput && activeJob ? (
@@ -894,26 +915,32 @@ export function App() {
                     </div>
                   ) : null}
 
-                  {hasSelectedFiles ? (
-                    <SelectedFilesPanel
-                      files={selectedFiles}
-                      multiple={selectedTool.needsMultipleInputs}
-                      recentFiles={restorableRecentFiles.slice(0, 5)}
-                      onAddFile={pickFiles}
-                      onOpenFile={pickFiles}
-                      onPickRecentFile={(path) => applySelectedFiles([path])}
-                      onRemove={removeFile}
-                      isAddFileMenuOpen={isAddFileMenuOpen}
-                      onAddFileMenuOpenChange={setIsAddFileMenuOpen}
-                    />
+                  {selectedTool.needsMultipleInputs && hasSelectedFiles ? (
+                    <div className="file-selection-summary">
+                      <span>{`${selectedFiles.length} files selected`}</span>
+                      <button className="save-button compact" onClick={pickFiles} type="button">
+                        <FilePlus2 size={15} />
+                        Add files
+                      </button>
+                    </div>
                   ) : (
                     <button className="save-button" onClick={pickFiles} type="button">
                       <FilePlus2 size={16} />
-                      Open...
+                      {selectedTool.needsMultipleInputs ? "Add files" : "Add file"}
                     </button>
                   )}
 
                   <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
+
+                  {selectedToolId === "splitPdf" && form.input ? (
+                    splitPlan?.trimmed ? (
+                      <p className="field-hint">
+                        Ranges past page {pdfPreview?.pageCount ?? "?"} were ignored.
+                      </p>
+                    ) : !splitPlan && form.ranges.trim() ? (
+                      <p className="field-hint">No pages match these ranges.</p>
+                    ) : null
+                  ) : null}
 
                   {selectedToolId === "compressPdf" && form.input ? (
                     <p className="source-size-note">
@@ -1090,7 +1117,7 @@ function HomeView({
           <small>
             {files.length > 0
               ? `${files.length} ${files.length === 1 ? "file" : "files"} ready`
-              : "PDF, JPG, Word, and PowerPoint files are supported"}
+              : "PDF and JPG files are supported"}
           </small>
         </button>
 
@@ -1169,17 +1196,13 @@ function HomeView({
 
 function FileDropZone({
   dragging,
-  files,
   multiple,
   onPick,
-  onRemove,
   title,
 }: {
   dragging: boolean;
-  files: string[];
   multiple: boolean;
   onPick: () => void;
-  onRemove: (path: string) => void;
   title: string;
 }) {
   return (
@@ -1189,21 +1212,24 @@ function FileDropZone({
         <span>{title}</span>
         <small>{multiple ? "Files stay in the order shown below" : "One file is used for this tool"}</small>
       </button>
-
-      {files.length > 0 ? (
-        <div className="selected-files">
-          {files.map((path) => (
-            <div className="selected-file" key={path}>
-              <span>{basename(path)}</span>
-              <small>{path}</small>
-              <button onClick={() => onRemove(path)} title="Remove" type="button">
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </section>
+  );
+}
+
+function StageFileBar({
+  file,
+  onRemove,
+}: {
+  file: string;
+  onRemove: (path: string) => void;
+}) {
+  return (
+    <div className="stage-file-bar">
+      <span>{basename(file)}</span>
+      <button onClick={() => onRemove(file)} title="Remove file" type="button">
+        <X size={14} />
+      </button>
+    </div>
   );
 }
 
@@ -1255,96 +1281,13 @@ function RecentFiles({ files, onOpenFile }: { files: string[]; onOpenFile: (path
   );
 }
 
-function SelectedFilesPanel({
+function SelectedFileStage({
   files,
-  multiple,
-  recentFiles,
-  onAddFile,
-  onOpenFile,
-  onPickRecentFile,
   onRemove,
-  isAddFileMenuOpen,
-  onAddFileMenuOpenChange,
 }: {
   files: string[];
-  multiple: boolean;
-  recentFiles: string[];
-  onAddFile: () => void;
-  onOpenFile: () => void;
-  onPickRecentFile: (path: string) => void;
   onRemove: (path: string) => void;
-  isAddFileMenuOpen: boolean;
-  onAddFileMenuOpenChange: (isOpen: boolean) => void;
 }) {
-  return (
-    <section className="side-section">
-      <div className="panel-heading">
-        <h3>{multiple ? "Files" : "File"}</h3>
-        {!multiple ? (
-          <button className="save-button compact" onClick={onOpenFile} type="button">
-            <FilePlus2 size={15} />
-            Open...
-          </button>
-        ) : null}
-        {multiple ? (
-          <div className="menu-wrap">
-            <button
-              className="icon-button compact"
-              onClick={() => onAddFileMenuOpenChange(!isAddFileMenuOpen)}
-              title="Add file"
-              type="button"
-            >
-              <FilePlus2 size={15} />
-            </button>
-            {isAddFileMenuOpen ? (
-              <div className="file-menu">
-                <button
-                  onClick={() => {
-                    onAddFileMenuOpenChange(false);
-                    onAddFile();
-                  }}
-                  type="button"
-                >
-                  Choose file...
-                </button>
-                {recentFiles.map((path) => (
-                  <button
-                    key={path}
-                    onClick={() => {
-                      onAddFileMenuOpenChange(false);
-                      onPickRecentFile(path);
-                    }}
-                    type="button"
-                  >
-                    <span>{basename(path)}</span>
-                    <small>{path}</small>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      <div className="file-name-field">
-        <span>File name</span>
-        <strong>{files.length === 1 ? basename(files[0]) : `${files.length} files selected`}</strong>
-      </div>
-      <div className="selected-files compact-list">
-        {files.map((path) => (
-          <div className="selected-file" key={path}>
-            <span>{basename(path)}</span>
-            <small>{path}</small>
-            <button onClick={() => onRemove(path)} title="Remove" type="button">
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SelectedFileStage({ files }: { files: string[] }) {
   return (
     <section className="selected-stage">
       <div className="preview-heading">
@@ -1356,7 +1299,9 @@ function SelectedFileStage({ files }: { files: string[] }) {
           <div className="stage-file" key={path}>
             <span>{index + 1}</span>
             <strong>{basename(path)}</strong>
-            <small>{path}</small>
+            <button onClick={() => onRemove(path)} title="Remove" type="button">
+              <X size={14} />
+            </button>
           </div>
         ))}
       </div>
@@ -2015,35 +1960,6 @@ function PageZoomModal({ zoom, onClose }: { zoom: ZoomState; onClose: () => void
   );
 }
 
-function RuntimeInfo({ dependencies }: { dependencies: DependencySet[keyof DependencySet][] }) {
-  const missingCount = dependencies.filter((dependency) => !dependency.available).length;
-  const bundledCount = dependencies.filter((dependency) => dependency.source === "bundled").length;
-
-  return (
-    <div className="runtime-info">
-      <button className="runtime-trigger" type="button" aria-label="Runtime details">
-        <Info size={17} />
-        <span>{missingCount > 0 ? `${missingCount} unavailable` : `${bundledCount} bundled`}</span>
-      </button>
-      <div className="runtime-popover" role="tooltip">
-        {dependencies.map((dependency) => (
-          <div className="dependency" key={dependency.name}>
-            {dependency.available ? (
-              <CheckCircle2 size={17} className="ok" />
-            ) : (
-              <CircleAlert size={17} className="missing" />
-            )}
-            <span>{dependency.name}</span>
-            <small>
-              {dependency.available ? `${dependency.source}: ${basename(dependency.command)}` : "not available"}
-            </small>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="field">
@@ -2098,10 +2014,6 @@ function buildRequest(
           fitMode: form.fitMode,
           marginMm: form.marginMm,
         };
-      case "pptToPdf":
-        return { kind: "pptToPdf", input: form.input };
-      case "wordToPdf":
-        return { kind: "wordToPdf", input: form.input };
       case "unlockPdf":
         return { kind: "unlockPdf", input: form.input, password: form.password };
       case "protectPdf":
@@ -2128,18 +2040,14 @@ function buildRequest(
 
 function dialogFilters(tool: ToolId) {
   if (tool === "jpgToPdf") return [{ name: "Images", extensions: ["jpg", "jpeg"] }];
-  if (tool === "pptToPdf") return [{ name: "Presentations", extensions: ["ppt", "pptx", "odp"] }];
-  if (tool === "wordToPdf") return [{ name: "Documents", extensions: ["doc", "docx", "odt"] }];
   return [{ name: "PDF", extensions: ["pdf"] }];
 }
 
 function commandCenterFilters() {
   return [
-    { name: "Supported Files", extensions: ["pdf", "jpg", "jpeg", "doc", "docx", "odt", "ppt", "pptx", "odp"] },
+    { name: "Supported Files", extensions: ["pdf", "jpg", "jpeg"] },
     { name: "PDF", extensions: ["pdf"] },
     { name: "Images", extensions: ["jpg", "jpeg"] },
-    { name: "Documents", extensions: ["doc", "docx", "odt"] },
-    { name: "Presentations", extensions: ["ppt", "pptx", "odp"] },
   ];
 }
 
@@ -2154,10 +2062,8 @@ function commandCenterSuggestions(files: string[]): ToolId[] {
   }
 
   if (files.every(hasJpgExtension)) return ["jpgToPdf"];
-  if (files.length === 1 && hasPresentationExtension(files[0])) return ["pptToPdf"];
-  if (files.length === 1 && hasDocumentExtension(files[0])) return ["wordToPdf"];
 
-  return ["mergePdf", "jpgToPdf", "wordToPdf", "pptToPdf"];
+  return ["mergePdf", "jpgToPdf"];
 }
 
 function availabilityMessage(reason: string) {
@@ -2202,9 +2108,6 @@ function runActionLabel(tool: ToolId) {
       return "Export JPGs";
     case "jpgToPdf":
       return "Create PDF";
-    case "pptToPdf":
-    case "wordToPdf":
-      return "Convert to PDF";
     case "unlockPdf":
       return "Unlock PDF";
     case "protectPdf":
@@ -2223,12 +2126,15 @@ function compressionSummary(result: JobResult) {
 
 const GROUP_HUES = ["violet", "blue", "teal", "amber", "pink", "green"];
 
-function parseSplitGroups(ranges: string, pageCount: number): SplitGroup[] | null {
-  const trimmed = ranges.trim();
-  if (!trimmed || pageCount <= 0) return null;
+function parseSplitPlan(ranges: string, pageCount: number): SplitPlan | null {
+  const trimmedInput = ranges.trim();
+  if (!trimmedInput || pageCount <= 0) return null;
 
   const groups: SplitGroup[] = [];
-  for (const rawPart of trimmed.split(",")) {
+  const effective: string[] = [];
+  let trimmed = false;
+
+  for (const rawPart of trimmedInput.split(",")) {
     const part = rawPart.trim();
     if (!part) continue;
 
@@ -2255,19 +2161,28 @@ function parseSplitGroups(ranges: string, pageCount: number): SplitGroup[] | nul
       return null;
     }
 
+    if (start > pageCount) {
+      trimmed = true;
+      continue;
+    }
+    const clampedEnd = Math.min(end, pageCount);
+    if (clampedEnd < end) {
+      trimmed = true;
+    }
+
     const pages: number[] = [];
-    for (let page = start; page <= Math.min(end, pageCount); page += 1) {
+    for (let page = start; page <= clampedEnd; page += 1) {
       pages.push(page);
     }
-    if (pages.length > 0) {
-      groups.push({
-        label: start === end ? `Page ${start}` : `Pages ${start}–${Math.min(end, pageCount)}`,
-        pages,
-      });
-    }
+    groups.push({
+      label: start === clampedEnd ? `Page ${start}` : `Pages ${start}–${clampedEnd}`,
+      pages,
+    });
+    effective.push(start === clampedEnd ? `${start}` : `${start}-${clampedEnd}`);
   }
 
-  return groups.length > 0 ? groups : null;
+  if (groups.length === 0) return null;
+  return { groups, effectiveRanges: effective.join(", "), trimmed };
 }
 
 function formatBytes(bytes: number) {
@@ -2304,14 +2219,6 @@ function hasPdfExtension(path: string) {
 
 function hasJpgExtension(path: string) {
   return ["jpg", "jpeg"].includes(extension(path));
-}
-
-function hasPresentationExtension(path: string) {
-  return ["ppt", "pptx", "odp"].includes(extension(path));
-}
-
-function hasDocumentExtension(path: string) {
-  return ["doc", "docx", "odt"].includes(extension(path));
 }
 
 function titleCase(value: string) {

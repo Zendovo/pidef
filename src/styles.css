@@ -89,8 +89,7 @@ button {
 @supports ((backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px))) {
   .sidebar,
   .tool-panel,
-  .status-panel,
-  .runtime-popover {
+  .status-panel {
     -webkit-backdrop-filter: blur(28px) saturate(170%);
     backdrop-filter: blur(28px) saturate(170%);
   }
@@ -300,7 +299,6 @@ body[data-native-shell="macos"] .workspace {
 }
 
 .icon-button:hover,
-.runtime-trigger:hover,
 .save-button:hover,
 .selected-file button:hover {
   background: rgba(255, 255, 255, 0.86);
@@ -380,86 +378,73 @@ body[data-native-shell="macos"] .workspace {
   min-height: 172px;
 }
 
-.side-section {
-  display: grid;
-  gap: 12px;
+.file-selection-summary {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
 }
 
-.file-name-field {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  display: grid;
-  gap: 3px;
-  padding: 10px;
-}
-
-.file-name-field span {
-  color: #c1c7d0;
-  font-size: 11px;
-  font-weight: 650;
-  text-transform: uppercase;
-}
-
-.file-name-field strong {
+.file-selection-summary span {
+  color: #e1e7ef;
   font-size: 13px;
+  font-weight: 600;
+}
+
+.stage-file-bar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 7px 8px 7px 12px;
+}
+
+.stage-file-bar span {
+  color: #f2f4f6;
+  font-size: 13px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.menu-wrap {
-  position: relative;
-}
-
-.file-menu {
-  background:
-    linear-gradient(145deg, rgba(39, 39, 42, 0.98), rgba(24, 24, 27, 0.98)),
-    #27272a;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
-  display: grid;
-  gap: 4px;
-  min-width: 230px;
-  padding: 6px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 7px);
-  z-index: 20;
-}
-
-.file-menu button {
+.stage-file-bar button,
+.stage-file button {
   background: transparent;
   border: 0;
   border-radius: 6px;
-  color: #f4f4f5;
+  color: #c1c7d0;
   cursor: pointer;
   display: grid;
-  gap: 2px;
-  min-width: 0;
-  padding: 8px;
-  text-align: left;
+  padding: 4px;
+  place-items: center;
 }
 
-.file-menu button:hover {
-  background: rgba(255, 255, 255, 0.09);
+.stage-file-bar button:hover,
+.stage-file button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
-.file-menu span,
-.file-menu small {
+.field-hint {
+  color: #fbbf24;
+  font-size: 12px;
+  margin: 0;
+}
+
+.preview-stage.split-stage {
+  gap: 14px;
+  grid-template-rows: minmax(0, min-content) minmax(0, 1fr);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.file-menu span {
-  font-size: 13px;
-}
-
-.file-menu small {
-  color: #c1c7d0;
-  font-size: 11px;
+.split-stage .split-groups-board,
+.split-stage .preview-panel {
+  min-height: 0;
+  overflow: auto;
 }
 
 .inline-fields.stacked {
@@ -1659,78 +1644,6 @@ textarea:focus {
   cursor: not-allowed;
 }
 
-.runtime-info {
-  position: relative;
-}
-
-.runtime-trigger {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.56);
-  border: 1px solid rgba(155, 171, 190, 0.38);
-  border-radius: 8px;
-  color: #475467;
-  cursor: pointer;
-  display: inline-flex;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 9px;
-}
-
-.runtime-trigger span {
-  font-size: 12px;
-}
-
-.runtime-popover {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.7)),
-    rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.76);
-  border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
-  display: grid;
-  gap: 8px;
-  opacity: 0;
-  padding: 10px;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  transform: translateY(-4px);
-  transition:
-    opacity 140ms ease,
-    transform 140ms ease;
-  width: 310px;
-  z-index: 10;
-}
-
-.runtime-info:hover .runtime-popover,
-.runtime-info:focus-within .runtime-popover {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
-.dependency {
-  align-items: center;
-  border: 1px solid rgba(163, 178, 197, 0.32);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 18px 1fr auto;
-  min-height: 38px;
-  padding: 8px 10px;
-}
-
-.dependency span {
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.dependency small {
-  color: #697386;
-  font-size: 12px;
-}
-
 .ok {
   color: #059669;
 }
@@ -1852,8 +1765,7 @@ textarea:focus {
   .tool-panel,
   .status-panel,
   .options-panel,
-  .recent-panel,
-  .runtime-popover {
+  .recent-panel {
     background:
       linear-gradient(145deg, rgba(46, 58, 72, 0.72), rgba(27, 36, 47, 0.48)),
       rgba(25, 33, 43, 0.68);
@@ -1886,8 +1798,7 @@ textarea:focus {
   .home-action small,
   .selected-file small,
   .job small,
-  .empty,
-  .dependency small {
+  .empty {
     color: #aab6c3;
   }
 
@@ -1905,7 +1816,6 @@ textarea:focus {
   .selected-file,
   .current-job,
   .job,
-  .runtime-trigger,
   .save-button {
     background: rgba(255, 255, 255, 0.09);
     border-color: rgba(255, 255, 255, 0.12);
@@ -1959,8 +1869,7 @@ textarea:focus {
 .home-action small,
 .selected-file small,
 .job small,
-.empty,
-.dependency small {
+.empty {
   color: #c1c7d0;
 }
 
@@ -2028,8 +1937,7 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
 .tool-panel,
 .status-panel,
 .options-panel,
-.recent-panel,
-.runtime-popover {
+.recent-panel {
   background:
     linear-gradient(145deg, rgba(43, 43, 48, 0.98), rgba(29, 30, 35, 0.98)),
     #2b2b30;
@@ -2044,7 +1952,6 @@ body[data-native-shell="macos"] .app-shell.native-sidebar-collapsed .topbar {
 .toggle-row label,
 .notice,
 .selected-file button,
-.runtime-trigger,
 .save-button {
   color: #e1e7ef;
 }
@@ -2055,7 +1962,6 @@ textarea,
 .notice,
 .selected-file,
 .job,
-.runtime-trigger,
 .save-button {
   background: rgba(255, 255, 255, 0.085);
   border-color: rgba(255, 255, 255, 0.16);
@@ -2110,8 +2016,7 @@ textarea,
 .home-drop-action:hover,
 .home-action:hover,
 .recent-file:hover,
-.history-row:hover,
-.file-menu button:hover {
+.history-row:hover {
   background: rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.22);
 }
@@ -2124,7 +2029,6 @@ textarea,
 }
 
 .icon-button,
-.runtime-trigger,
 .save-button,
 .selected-file button {
   background: rgba(255, 255, 255, 0.09);
@@ -2133,7 +2037,6 @@ textarea,
 }
 
 .icon-button:hover,
-.runtime-trigger:hover,
 .save-button:hover,
 .selected-file button:hover {
   background: rgba(255, 255, 255, 0.16);
@@ -2313,7 +2216,6 @@ textarea,
 :root[data-theme="light"] .status-panel,
 :root[data-theme="light"] .options-panel,
 :root[data-theme="light"] .recent-panel,
-:root[data-theme="light"] .runtime-popover,
 :root[data-theme="light"] .settings-panel {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 244, 245, 0.98)),
@@ -2349,14 +2251,39 @@ textarea,
 :root[data-theme="light"] .selected-file small,
 :root[data-theme="light"] .recent-file small,
 :root[data-theme="light"] .history-row small,
+:root[data-theme="light"] .file-selection-summary span {
+  color: #27272a;
+}
+
+:root[data-theme="light"] .stage-file-bar {
+  background: rgba(39, 39, 42, 0.045);
+  border-color: rgba(39, 39, 42, 0.14);
+}
+
+:root[data-theme="light"] .stage-file-bar span {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .stage-file-bar button,
+:root[data-theme="light"] .stage-file button {
+  color: #52525b;
+}
+
+:root[data-theme="light"] .stage-file-bar button:hover,
+:root[data-theme="light"] .stage-file button:hover {
+  background: rgba(39, 39, 42, 0.08);
+  color: #18181b;
+}
+
+:root[data-theme="light"] .field-hint {
+  color: #b45309;
+}
+
 :root[data-theme="light"] .stage-file span,
 :root[data-theme="light"] .stage-file small,
-:root[data-theme="light"] .file-name-field span,
-:root[data-theme="light"] .file-menu small,
 :root[data-theme="light"] .current-job small,
 :root[data-theme="light"] .job small,
 :root[data-theme="light"] .empty,
-:root[data-theme="light"] .dependency small,
 :root[data-theme="light"] .debug-row code,
 :root[data-theme="light"] .debug-block p {
   color: #52525b;
@@ -2379,11 +2306,9 @@ textarea,
 :root[data-theme="light"] .recent-file,
 :root[data-theme="light"] .history-row,
 :root[data-theme="light"] .stage-file,
-:root[data-theme="light"] .file-name-field,
 :root[data-theme="light"] .selected-file,
 :root[data-theme="light"] .current-job,
 :root[data-theme="light"] .job,
-:root[data-theme="light"] .runtime-trigger,
 :root[data-theme="light"] .save-button,
 :root[data-theme="light"] .icon-button,
 :root[data-theme="light"] .debug-row,
@@ -2393,20 +2318,6 @@ textarea,
   color: #27272a;
 }
 
-:root[data-theme="light"] .file-menu {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 244, 245, 0.98)),
-    #ffffff;
-  border-color: rgba(39, 39, 42, 0.16);
-}
-
-:root[data-theme="light"] .file-menu button {
-  color: #27272a;
-}
-
-:root[data-theme="light"] .file-menu button:hover {
-  background: rgba(39, 39, 42, 0.11);
-}
 
 :root[data-theme="light"] .preview-panel,
 :root[data-theme="light"] .organize-panel,
@@ -2485,7 +2396,6 @@ textarea,
 
 :root[data-theme="light"] .tool-button:hover,
 :root[data-theme="light"] .icon-button:hover,
-:root[data-theme="light"] .runtime-trigger:hover,
 :root[data-theme="light"] .save-button:hover,
 :root[data-theme="light"] .selected-file button:hover {
   background: rgba(39, 39, 42, 0.11);
@@ -2496,8 +2406,7 @@ textarea,
 :root[data-theme="light"] .home-action:hover,
 :root[data-theme="light"] .home-drop-action:hover,
 :root[data-theme="light"] .recent-file:hover,
-:root[data-theme="light"] .history-row:hover,
-:root[data-theme="light"] .file-menu button:hover {
+:root[data-theme="light"] .history-row:hover {
   background: rgba(39, 39, 42, 0.105);
   border-color: rgba(39, 39, 42, 0.24);
   box-shadow: 0 8px 18px rgba(39, 39, 42, 0.07);

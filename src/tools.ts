@@ -4,10 +4,8 @@ import {
   FileImage,
   FileKey,
   FileLock,
-  FileOutput,
   Files,
   Layers3,
-  Presentation,
   Scissors,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -19,8 +17,6 @@ export type ToolId =
   | "compressPdf"
   | "pdfToJpg"
   | "jpgToPdf"
-  | "pptToPdf"
-  | "wordToPdf"
   | "unlockPdf"
   | "protectPdf";
 
@@ -120,26 +116,6 @@ export const tools: ToolDefinition[] = [
     accent: "#0891b2",
     needsMultipleInputs: true,
     outputHint: "/Users/hima/Desktop/images.pdf",
-    defaults: commonDefaults,
-  },
-  {
-    id: "pptToPdf",
-    title: "PPT to PDF",
-    description: "Convert presentations locally through LibreOffice.",
-    icon: Presentation,
-    accent: "#dc2626",
-    needsMultipleInputs: false,
-    outputHint: "/Users/hima/Desktop/slides.pdf",
-    defaults: commonDefaults,
-  },
-  {
-    id: "wordToPdf",
-    title: "Word to PDF",
-    description: "Convert documents locally through LibreOffice.",
-    icon: FileOutput,
-    accent: "#1d4ed8",
-    needsMultipleInputs: false,
-    outputHint: "/Users/hima/Desktop/document.pdf",
     defaults: commonDefaults,
   },
   {

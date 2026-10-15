@@ -30,7 +30,8 @@ Core V1 operations:
 - Unlock PDF
 - Protect PDF
 
-Office conversion is explicitly later. Word/PPT to PDF can stay optional/disabled until the core PDF workflows are stronger.
+Office conversion (Word/PPT to PDF) was cut to keep the bundle lean; the
+LibreOffice detection/conversion code was removed entirely.
 
 ## Current Feature State
 
@@ -117,7 +118,7 @@ Pidef also runs fully client-side in the browser from the same repo and UI:
   (Tauri dialog/save_output on desktop; file input, File System Access API
   with download fallback in the browser). Browser files live in an in-memory
   registry (`src/web/registry.ts`) with synthetic `/pidef/<id>/<name>` paths.
-- Office conversion is desktop-only; recent files are hidden on web.
+- Recent files are hidden on web (no durable file handles).
 - `npm run dev` + a browser exercises the web runtime; `npm run e2e:web`
   (needs `npm run dev` or `npm run preview` running) drives merge, compress,
   split, and save flows through Playwright and fails on console errors.

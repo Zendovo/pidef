@@ -12,8 +12,6 @@ pub enum ToolId {
     CompressPdf,
     PdfToJpg,
     JpgToPdf,
-    PptToPdf,
-    WordToPdf,
     UnlockPdf,
     ProtectPdf,
 }
@@ -61,12 +59,6 @@ pub enum Operation {
         page_size: String,
         fit_mode: String,
         margin_mm: f32,
-    },
-    PptToPdf {
-        input: PathBuf,
-    },
-    WordToPdf {
-        input: PathBuf,
     },
     UnlockPdf {
         input: PathBuf,

@@ -28,7 +28,6 @@ pub enum DependencySource {
 pub struct DependencySet {
     pub qpdf: DependencyInfo,
     pub pdf_renderer: DependencyInfo,
-    pub libreoffice: DependencyInfo,
 }
 
 impl DependencySet {
@@ -38,10 +37,6 @@ impl DependencySet {
 
     pub fn has_pdf_renderer(&self) -> bool {
         self.pdf_renderer.available
-    }
-
-    pub fn has_libreoffice(&self) -> bool {
-        self.libreoffice.available
     }
 }
 
@@ -58,7 +53,6 @@ pub fn detect_dependencies_with_roots(roots: &[PathBuf]) -> DependencySet {
             false,
             roots,
         ),
-        libreoffice: dependency("LibreOffice", &["soffice", "libreoffice"], true, roots),
     }
 }
 
@@ -134,20 +128,10 @@ fn search_paths() -> Vec<PathBuf> {
 }
 
 fn common_tool_paths() -> Vec<PathBuf> {
-    #[allow(unused_mut)]
-    let mut paths = vec![
+    vec![
         PathBuf::from("/opt/homebrew/bin"),
         PathBuf::from("/usr/local/bin"),
         PathBuf::from("/usr/bin"),
         PathBuf::from("/bin"),
-    ];
-
-    #[cfg(target_os = "macos")]
-    {
-        paths.push(PathBuf::from(
-            "/Applications/LibreOffice.app/Contents/MacOS",
-        ));
-    }
-
-    paths
+    ]
 }

@@ -4,7 +4,7 @@ Pidef is a local-first desktop PDF utility for macOS, Windows, and Linux. It is 
 
 The app is built with Tauri, Vite, React, TypeScript, and Rust. The Rust operation layer is designed so a future CLI or MCP tool can reuse the same core PDF APIs.
 
-> Development status: Pidef is actively in development. The current app is usable for early testing, but it still needs more polish, broader fixture testing, platform QA, and missing features. Compression is intentionally disabled for now while the in-house compression approach is researched. Office conversion is also treated as a later/optional workflow.
+> Development status: Pidef is actively in development. The current app is usable for early testing, but it still needs more polish, broader fixture testing, and platform QA. Compression and the in-house image optimizer are in place; Office conversion (Word/PPT) was deliberately cut.
 
 ## Screenshots
 
@@ -36,9 +36,7 @@ The app is built with Tauri, Vite, React, TypeScript, and Rust. The Rust operati
 | JPG to PDF | Available through Rust image/PDF generation |
 | Unlock PDF | Available through bundled/detected `qpdf` |
 | Protect PDF | Available through bundled/detected `qpdf` |
-| Compress PDF | Planned, disabled in the UI |
-| Word to PDF | Later/optional, depends on LibreOffice |
-| PPT to PDF | Later/optional, depends on LibreOffice |
+| Compress PDF | Available; lossless and image-optimizing presets via qpdf + in-house optimizer |
 
 ## Architecture
 
@@ -56,7 +54,6 @@ Pidef checks bundled resources first, then system paths.
 
 - Bundled/detected `qpdf` powers merge, split, organize, unlock, and protect.
 - Bundled/detected PDFium powers PDF previews and PDF-to-JPG rendering.
-- LibreOffice can power Word/PPT conversion, but that workflow is not a release blocker for the current app.
 - Ghostscript is not part of the current plan. Compression will be revisited separately.
 
 ## Local Development
@@ -123,5 +120,4 @@ Bundles are created under `target/release/bundle`. On macOS, the app bundle buil
 - Finish compression research and add a local compression implementation.
 - Expand fixture coverage for every operation.
 - Polish organize/split previews and larger-document performance.
-- Revisit Word/PPT conversion after the core PDF workflows are stronger.
 - Add a future CLI/MCP layer over the shared Rust operation APIs.

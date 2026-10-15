@@ -25,8 +25,6 @@ fn get_operation_options(app: AppHandle) -> Vec<OperationOptions> {
         option(ToolId::CompressPdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::PdfToJpg, &["PDFium"], deps.has_pdf_renderer()),
         option(ToolId::JpgToPdf, &[], true),
-        option(ToolId::PptToPdf, &["LibreOffice"], deps.has_libreoffice()),
-        option(ToolId::WordToPdf, &["LibreOffice"], deps.has_libreoffice()),
         option(ToolId::UnlockPdf, &["qpdf"], deps.has_qpdf()),
         option(ToolId::ProtectPdf, &["qpdf"], deps.has_qpdf()),
     ]

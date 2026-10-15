@@ -12,7 +12,6 @@ export type DependencyInfo = {
 export type DependencySet = {
   qpdf: DependencyInfo;
   pdfRenderer: DependencyInfo;
-  libreoffice: DependencyInfo;
 };
 
 export type OperationOptions = {

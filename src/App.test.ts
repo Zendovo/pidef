@@ -10,8 +10,6 @@ describe("tool dashboard", () => {
       "compressPdf",
       "pdfToJpg",
       "jpgToPdf",
-      "pptToPdf",
-      "wordToPdf",
       "unlockPdf",
       "protectPdf",
     ]);

@@ -153,9 +153,6 @@ pub fn run_job_with_dependency_roots(
             fit_mode,
             margin_mm,
         } => run_jpg_to_pdf(&request, inputs, page_size, fit_mode, *margin_mm),
-        Operation::PptToPdf { input } | Operation::WordToPdf { input } => {
-            run_office_to_pdf(&request, &dependencies, input)
-        }
         Operation::UnlockPdf { input, password } => {
             run_unlock(&request, &dependencies, input, password)
         }
@@ -214,8 +211,6 @@ fn validate_request(request: &JobRequest) -> Result<(), PdfToolError> {
         }
         Operation::CompressPdf { input, .. }
         | Operation::PdfToJpg { input, .. }
-        | Operation::PptToPdf { input }
-        | Operation::WordToPdf { input }
         | Operation::UnlockPdf { input, .. }
         | Operation::ProtectPdf { input, .. } => ensure_file(input)?,
     }
@@ -253,8 +248,6 @@ fn resolve_output_path(request: &JobRequest) -> Result<PathBuf, PdfToolError> {
         Operation::OrganizePdf { .. } => base.join("organized.pdf"),
         Operation::CompressPdf { .. } => base.join("compressed.pdf"),
         Operation::JpgToPdf { .. } => base.join("images.pdf"),
-        Operation::PptToPdf { .. } => base.join("presentation.pdf"),
-        Operation::WordToPdf { .. } => base.join("document.pdf"),
         Operation::UnlockPdf { .. } => base.join("unlocked.pdf"),
         Operation::ProtectPdf { .. } => base.join("protected.pdf"),
     };
@@ -638,43 +631,6 @@ fn run_jpg_to_pdf(
     let pdf = build_jpg_pdf(inputs, page_size, fit_mode, margin_mm)?;
     fs::write(output, pdf)?;
     result_for(request, &[output.clone()], inputs)
-}
-
-fn run_office_to_pdf(
-    request: &JobRequest,
-    deps: &DependencySet,
-    input: &Path,
-) -> Result<JobResult, PdfToolError> {
-    require(&deps.libreoffice)?;
-    let output = output_path(request)?;
-    let output_dir = output
-        .parent()
-        .ok_or_else(|| PdfToolError::InvalidRequest("output path has no parent".to_string()))?;
-    fs::create_dir_all(output_dir)?;
-
-    let mut command = hidden_command(&deps.libreoffice.command);
-    command
-        .arg("--headless")
-        .arg("--convert-to")
-        .arg("pdf")
-        .arg("--outdir")
-        .arg(output_dir)
-        .arg(input);
-    run_command(command)?;
-
-    let generated = output_dir.join(format!(
-        "{}.pdf",
-        input
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .unwrap_or("converted")
-    ));
-
-    if generated != *output && generated.exists() {
-        fs::rename(&generated, output)?;
-    }
-
-    result_for(request, &[output.clone()], &[input.to_path_buf()])
 }
 
 fn run_unlock(

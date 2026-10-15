@@ -19,14 +19,6 @@ export function webDependencies(): DependencySet {
   return {
     qpdf: bundled("qpdf", "qpdf (WebAssembly)"),
     pdfRenderer: bundled("PDFium", "pdfium (WebAssembly)"),
-    libreoffice: {
-      name: "LibreOffice",
-      command: "soffice",
-      path: null,
-      available: false,
-      optional: true,
-      source: "unavailable",
-    },
   };
 }
 
@@ -34,9 +26,6 @@ export function webOperationOptions(): OperationOptions[] {
   return tools.map((tool) => ({
     tool: tool.id,
     requires: [],
-    unavailableReason:
-      tool.id === "pptToPdf" || tool.id === "wordToPdf"
-        ? "Office conversion is available in the desktop app"
-        : null,
+    unavailableReason: null,
   }));
 }

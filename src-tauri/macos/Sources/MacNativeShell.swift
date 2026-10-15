@@ -24,6 +24,17 @@ public func setMacNativeSidebarCollapsed(_ rawWindow: UnsafeMutableRawPointer?, 
   }
 }
 
+@_cdecl("set_mac_native_theme")
+public func setMacNativeTheme(_ rawWindow: UnsafeMutableRawPointer?, _ darkValue: Int32) {
+  guard let rawWindow else { return }
+  let isDark = darkValue != 0
+
+  DispatchQueue.main.async {
+    let window = unsafeBitCast(rawWindow, to: NSWindow.self)
+    MacNativeShellRegistry.sidebarState(for: window)?.syncDarkMode(isDark)
+  }
+}
+
 private enum MacNativeShellRegistry {
   private static var sidebarStateKey: UInt8 = 0
 
@@ -53,7 +64,9 @@ private enum MacNativeShellInstaller {
     prepareWebViewForNativeChrome(webView)
     markNativeShellReady(in: webView)
 
-    let sidebarState = MacSidebarState()
+    let sidebarState = MacSidebarState(
+      isDarkMode: NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    )
     MacNativeShellRegistry.setSidebarState(sidebarState, for: window)
     let sidebarContent = NSHostingView(
       rootView: MacNativeSidebar(sidebarState: sidebarState) { toolID in
@@ -110,6 +123,9 @@ private enum MacNativeShellInstaller {
       }
 
       setNativeSidebarCollapsed(isCollapsed, in: webView)
+    }
+    sidebarState.onThemeChange = { [weak webView] isDark in
+      setNativeThemeChanged(isDark, in: webView)
     }
     setNativeSidebarCollapsed(false, in: webView)
   }
@@ -194,6 +210,13 @@ private enum MacNativeShellInstaller {
     webView?.evaluateJavaScript(script)
   }
 
+  private static func setNativeThemeChanged(_ isDark: Bool, in webView: WKWebView?) {
+    let script = """
+      window.dispatchEvent(new CustomEvent('native-theme-changed', { detail: { dark: \(isDark ? "true" : "false") } }));
+    """
+    webView?.evaluateJavaScript(script)
+  }
+
   private static func findWebView(in view: NSView) -> WKWebView? {
     if let webView = view as? WKWebView {
       return webView
@@ -225,10 +248,13 @@ private enum MacNativeShellInstaller {
 
 private final class MacSidebarState: ObservableObject {
   @Published var isCollapsed: Bool
+  @Published var isDarkMode: Bool
   var onCollapsedChange: ((Bool) -> Void)?
+  var onThemeChange: ((Bool) -> Void)?
 
-  init(isCollapsed: Bool = false) {
+  init(isCollapsed: Bool = false, isDarkMode: Bool = false) {
     self.isCollapsed = isCollapsed
+    self.isDarkMode = isDarkMode
   }
 
   func setCollapsed(_ collapsed: Bool) {
@@ -239,6 +265,17 @@ private final class MacSidebarState: ObservableObject {
 
   func toggle() {
     setCollapsed(!isCollapsed)
+  }
+
+  func setDarkMode(_ isDark: Bool) {
+    guard isDarkMode != isDark else { return }
+    isDarkMode = isDark
+    onThemeChange?(isDark)
+  }
+
+  func syncDarkMode(_ isDark: Bool) {
+    guard isDarkMode != isDark else { return }
+    isDarkMode = isDark
   }
 }
 
@@ -286,11 +323,20 @@ private struct MacNativeSidebar: View {
         .frame(height: 24)
         .padding(.horizontal, 16)
 
+      Divider()
+        .opacity(0.55)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+
       toolButton(.history)
         .padding(.horizontal, 16)
 
       toolButton(.settings)
         .padding(.horizontal, 16)
+
+      darkModeRow
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
         .padding(.bottom, 16)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -308,6 +354,28 @@ private struct MacNativeSidebar: View {
       .italic()
       .foregroundStyle(Color.primary.opacity(0.9))
       .overlay(WindowDragRegion())
+  }
+
+  private var darkModeRow: some View {
+    HStack(spacing: 10) {
+      VStack(alignment: .leading, spacing: 1) {
+        Text("Dark mode")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(Color.secondary.opacity(0.85))
+      }
+
+      Spacer(minLength: 8)
+
+      Toggle("", isOn: Binding(
+        get: { sidebarState.isDarkMode },
+        set: { sidebarState.setDarkMode($0) }
+      ))
+      .labelsHidden()
+      .toggleStyle(.switch)
+      .controlSize(.mini)
+    }
+    .padding(.horizontal, 8)
+    .frame(height: 30)
   }
 
   private func toolButton(_ tool: MacTool) -> some View {
@@ -416,7 +484,7 @@ private struct MacSidebarToggleButton: View {
 }
 
 private enum MacSidebarFont {
-  static let brand: Font = .system(size: 19, weight: .regular, design: .serif)
+  static let brand: Font = .system(size: 22, weight: .medium, design: .serif)
   static let item: Font = .system(size: 14, weight: .regular, design: .default)
   static let section: Font = .system(size: 11, weight: .semibold, design: .default)
   static let icon: Font = .system(size: 14, weight: .regular, design: .default)
@@ -436,8 +504,6 @@ private struct MacTool: Identifiable {
     .init(id: "compressPdf", title: "Compress PDF", symbol: "archivebox"),
     .init(id: "pdfToJpg", title: "PDF to JPG", symbol: "photo"),
     .init(id: "jpgToPdf", title: "JPG to PDF", symbol: "photo.stack"),
-    .init(id: "pptToPdf", title: "PPT to PDF", symbol: "rectangle.on.rectangle"),
-    .init(id: "wordToPdf", title: "Word to PDF", symbol: "doc.text"),
     .init(id: "unlockPdf", title: "Unlock PDF", symbol: "lock.open"),
     .init(id: "protectPdf", title: "Protect PDF", symbol: "lock.shield"),
   ]

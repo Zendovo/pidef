@@ -63,7 +63,11 @@ fn save_output(source: PathBuf, destination: PathBuf) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn set_appearance(app: AppHandle, appearance: String) -> Result<(), String> {
+fn set_appearance(
+    app: AppHandle,
+    appearance: String,
+    resolved: Option<String>,
+) -> Result<(), String> {
     let theme = match appearance.as_str() {
         "light" => Some(Theme::Light),
         "dark" => Some(Theme::Dark),
@@ -72,6 +76,9 @@ fn set_appearance(app: AppHandle, appearance: String) -> Result<(), String> {
     };
 
     app.set_theme(theme);
+
+    let effective = resolved.as_deref().unwrap_or(appearance.as_str());
+    macos_native_shell::set_theme(&app, effective == "dark")?;
     Ok(())
 }
 

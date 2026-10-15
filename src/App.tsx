@@ -161,7 +161,10 @@ export function App() {
     };
 
     applyAppearance();
-    void invokeCommand("set_appearance", { appearance });
+    void invokeCommand("set_appearance", {
+      appearance,
+      resolved: appearance === "system" ? (media.matches ? "dark" : "light") : appearance,
+    });
     media.addEventListener("change", applyAppearance);
     return () => media.removeEventListener("change", applyAppearance);
   }, [appearance]);
@@ -291,8 +294,17 @@ export function App() {
       activateTool(tool);
     };
 
+    const handleNativeThemeChanged = (event: Event) => {
+      const dark = Boolean((event as CustomEvent<{ dark?: boolean }>).detail?.dark);
+      setAppearance(dark ? "dark" : "light");
+    };
+
     window.addEventListener("native-tool-selected", handleNativeToolSelected);
-    return () => window.removeEventListener("native-tool-selected", handleNativeToolSelected);
+    window.addEventListener("native-theme-changed", handleNativeThemeChanged);
+    return () => {
+      window.removeEventListener("native-tool-selected", handleNativeToolSelected);
+      window.removeEventListener("native-theme-changed", handleNativeThemeChanged);
+    };
   }, [activeView]);
 
   useEffect(() => {

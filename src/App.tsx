@@ -99,6 +99,7 @@ export function App() {
     const stored = localStorage.getItem("appearance");
     return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
   });
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [dependencies, setDependencies] = useState<DependencySet | null>(null);
   const [operationOptions, setOperationOptions] = useState<OperationOptions[]>([]);
   const [form, setForm] = useState<FormState>(() => initialForm(toolById.mergePdf));
@@ -156,6 +157,7 @@ export function App() {
       document.documentElement.dataset.theme = resolved;
       document.documentElement.dataset.appearance = appearance;
       localStorage.setItem("appearance", appearance);
+      setResolvedTheme(resolved === "light" ? "light" : "dark");
     };
 
     applyAppearance();
@@ -719,31 +721,46 @@ export function App() {
           })}
         </div>
 
-        <button
-          className={`tool-button history-button ${activeView === "history" ? "selected" : ""}`}
-          onClick={() => setActiveView("history")}
-          type="button"
-        >
-          <span className="tool-icon">
-            <Clock3 size={18} />
-          </span>
-          <span>
-            <strong>History</strong>
-          </span>
-        </button>
+        <div className="sidebar-footer">
+          <button
+            className={`tool-button history-button ${activeView === "history" ? "selected" : ""}`}
+            onClick={() => setActiveView("history")}
+            type="button"
+          >
+            <span className="tool-icon">
+              <Clock3 size={18} />
+            </span>
+            <span>
+              <strong>History</strong>
+            </span>
+          </button>
 
-        <button
-          className={`tool-button settings-button ${isSettingsView ? "selected" : ""}`}
-          onClick={() => setActiveView("settings")}
-          type="button"
-        >
-          <span className="tool-icon">
-            <Settings size={18} />
-          </span>
-          <span>
-            <strong>Settings</strong>
-          </span>
-        </button>
+          <button
+            className={`tool-button settings-button ${isSettingsView ? "selected" : ""}`}
+            onClick={() => setActiveView("settings")}
+            type="button"
+          >
+            <span className="tool-icon">
+              <Settings size={18} />
+            </span>
+            <span>
+              <strong>Settings</strong>
+            </span>
+          </button>
+
+          <div className="theme-toggle-row">
+            <span>Dark mode</span>
+            <button
+              aria-checked={resolvedTheme === "dark"}
+              className={`theme-switch ${resolvedTheme === "dark" ? "on" : ""}`}
+              onClick={() => setAppearance(resolvedTheme === "dark" ? "light" : "dark")}
+              role="switch"
+              type="button"
+            >
+              <span className="theme-switch-knob" />
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className={isHomeView ? "workspace workspace-home" : "workspace"}>
@@ -768,7 +785,7 @@ export function App() {
                 {activeView === "history"
                   ? "Recent work, opened files, and saved outputs."
                   : isSettingsView
-                    ? "Appearance and runtime diagnostics."
+                    ? "Runtime diagnostics and updates."
                     : selectedTool.description}
               </p>
             </div>
@@ -797,12 +814,10 @@ export function App() {
           />
         ) : isSettingsView ? (
           <SettingsView
-            appearance={appearance}
             dependencies={dependencyList}
             operationOptions={operationOptions}
             appVersion={appVersion}
             updateState={updateState}
-            onAppearanceChange={setAppearance}
             onRefreshRuntime={refreshRuntime}
             onCheckForUpdates={async () => setUpdateState(await checkForUpdates())}
             onInstallUpdate={async () => setUpdateState(await installPendingUpdate())}
@@ -973,22 +988,18 @@ export function App() {
 }
 
 function SettingsView({
-  appearance,
   dependencies,
   operationOptions,
   appVersion,
   updateState,
-  onAppearanceChange,
   onRefreshRuntime,
   onCheckForUpdates,
   onInstallUpdate,
 }: {
-  appearance: AppearanceMode;
   dependencies: DependencySet[keyof DependencySet][];
   operationOptions: OperationOptions[];
   appVersion: string | null;
   updateState: UpdateState;
-  onAppearanceChange: (appearance: AppearanceMode) => void;
   onRefreshRuntime: () => void;
   onCheckForUpdates: () => Promise<void>;
   onInstallUpdate: () => Promise<void>;
@@ -1033,24 +1044,6 @@ function SettingsView({
           ) : null}
         </section>
       ) : null}
-
-      <section className="settings-panel">
-        <div className="settings-heading">
-          <h3>Appearance</h3>
-        </div>
-        <div className="segmented-control" aria-label="Appearance">
-          {(["system", "light", "dark"] as AppearanceMode[]).map((mode) => (
-            <button
-              className={appearance === mode ? "selected" : ""}
-              key={mode}
-              onClick={() => onAppearanceChange(mode)}
-              type="button"
-            >
-              {titleCase(mode)}
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="settings-panel runtime-debug-panel">
         <div className="settings-heading">
@@ -2265,10 +2258,6 @@ function hasPdfExtension(path: string) {
 
 function hasJpgExtension(path: string) {
   return ["jpg", "jpeg"].includes(extension(path));
-}
-
-function titleCase(value: string) {
-  return `${value[0].toUpperCase()}${value.slice(1)}`;
 }
 
 function unique(value: string, index: number, values: string[]) {

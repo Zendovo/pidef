@@ -134,6 +134,7 @@ fn search_paths() -> Vec<PathBuf> {
 }
 
 fn common_tool_paths() -> Vec<PathBuf> {
+    #[allow(unused_mut)]
     let mut paths = vec![
         PathBuf::from("/opt/homebrew/bin"),
         PathBuf::from("/usr/local/bin"),

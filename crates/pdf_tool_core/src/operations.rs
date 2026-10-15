@@ -3,18 +3,26 @@ use crate::{
     downsample_dct_images,
     page_ranges::qpdf_range,
     parse_page_ranges, CompressionProfile, DependencySet, JobRequest, JobResult, Operation,
-    OrganizePage, PdfPreview, PdfPreviewPage, PdfPreviewRequest, PdfToolError, ProtectPermissions,
+    OrganizePage, PdfToolError, ProtectPermissions,
 };
+
+#[cfg(feature = "render")]
+use crate::{PdfPreview, PdfPreviewPage, PdfPreviewRequest};
+#[cfg(feature = "render")]
 use base64::{engine::general_purpose, Engine as _};
-use image::codecs::jpeg::JpegEncoder;
-use pdfium_render::prelude::*;
 use std::{
     env, fs,
-    fs::File,
-    io::BufWriter,
     path::{Path, PathBuf},
     process::Command,
 };
+
+#[cfg(feature = "render")]
+use std::{fs::File, io::BufWriter};
+
+#[cfg(feature = "render")]
+use image::codecs::jpeg::JpegEncoder;
+#[cfg(feature = "render")]
+use pdfium_render::prelude::*;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -26,6 +34,7 @@ pub fn run_job(request: JobRequest) -> Result<JobResult, PdfToolError> {
     run_job_with_dependency_roots(request, &[])
 }
 
+#[cfg(feature = "render")]
 pub fn render_pdf_preview(
     request: PdfPreviewRequest,
     dependency_roots: &[PathBuf],
@@ -118,6 +127,7 @@ pub fn run_job_with_dependency_roots(
         Operation::CompressPdf { input, profile } => {
             run_compress(&request, &dependencies, input, *profile)
         }
+        #[cfg(feature = "render")]
         Operation::PdfToJpg {
             input,
             dpi,
@@ -133,6 +143,10 @@ pub fn run_job_with_dependency_roots(
             *last_page,
             *quality,
         ),
+        #[cfg(not(feature = "render"))]
+        Operation::PdfToJpg { .. } => Err(PdfToolError::InvalidRequest(
+            "PDF rendering is not available in this build".to_string(),
+        )),
         Operation::JpgToPdf {
             inputs,
             page_size,
@@ -331,7 +345,7 @@ fn run_organize(
     result_for(request, &[output.clone()], &[input.to_path_buf()])
 }
 
-fn page_spec(page: u32, rotate_degrees: i16) -> String {
+pub fn page_spec(page: u32, rotate_degrees: i16) -> String {
     match rotate_degrees {
         0 => page.to_string(),
         90 => format!("{page}:rotate=+90"),
@@ -518,7 +532,7 @@ fn optimize_and_compress(
     Ok(warnings)
 }
 
-fn compress_arguments(profile: CompressionProfile) -> Vec<&'static str> {
+pub fn compress_arguments(profile: CompressionProfile) -> Vec<&'static str> {
     match profile {
         // Purely structural: original streams are kept byte-for-byte, so the
         // result can never render differently.
@@ -550,6 +564,7 @@ fn compress_arguments(profile: CompressionProfile) -> Vec<&'static str> {
     }
 }
 
+#[cfg(feature = "render")]
 fn run_pdf_to_jpg(
     request: &JobRequest,
     deps: &DependencySet,
@@ -685,6 +700,33 @@ fn run_unlock(
     result_for(request, &[output.clone()], &[input.to_path_buf()])
 }
 
+/// Encryption arguments for `qpdf` protect, shared with the web engine so the
+/// CLI semantics stay defined in one place.
+pub fn protect_arguments(
+    user_password: &str,
+    owner_password: &str,
+    permissions: &ProtectPermissions,
+) -> Vec<String> {
+    let mut arguments = vec![
+        "--encrypt".to_string(),
+        user_password.to_string(),
+        owner_password.to_string(),
+        "256".to_string(),
+    ];
+
+    if !permissions.allow_printing {
+        arguments.push("--print=none".to_string());
+    }
+    if !permissions.allow_copying {
+        arguments.push("--extract=n".to_string());
+    }
+    if !permissions.allow_modification {
+        arguments.push("--modify=none".to_string());
+    }
+
+    arguments
+}
+
 fn run_protect(
     request: &JobRequest,
     deps: &DependencySet,
@@ -696,22 +738,9 @@ fn run_protect(
     require(&deps.qpdf)?;
     let output = output_path(request)?;
     let mut command = hidden_command(&deps.qpdf.command);
-    command
-        .arg("--encrypt")
-        .arg(user_password)
-        .arg(owner_password)
-        .arg("256");
-
-    if !permissions.allow_printing {
-        command.arg("--print=none");
+    for argument in protect_arguments(user_password, owner_password, permissions) {
+        command.arg(argument);
     }
-    if !permissions.allow_copying {
-        command.arg("--extract=n");
-    }
-    if !permissions.allow_modification {
-        command.arg("--modify=none");
-    }
-
     command.arg("--").arg(input).arg(output);
     run_command(command)?;
     result_for(request, &[output.clone()], &[input.to_path_buf()])
@@ -725,6 +754,7 @@ fn require(dependency: &crate::DependencyInfo) -> Result<(), PdfToolError> {
     }
 }
 
+#[cfg(feature = "render")]
 fn bind_pdfium(deps: &DependencySet) -> Result<Pdfium, PdfToolError> {
     let pdfium_path = deps
         .pdf_renderer
@@ -776,6 +806,7 @@ fn hidden_command(program: &str) -> Command {
     }
 }
 
+#[cfg(feature = "render")]
 fn points_to_pixels(points: f32, dpi: u16) -> i32 {
     ((points * dpi as f32 / 72.0).round() as i32).max(1)
 }
@@ -817,11 +848,28 @@ pub fn build_jpg_pdf(
 ) -> Result<Vec<u8>, PdfToolError> {
     let mut images = Vec::new();
     for input in inputs {
-        let bytes = fs::read(input)?;
-        let info = parse_jpeg_info(&bytes).ok_or_else(|| {
-            PdfToolError::UnsupportedFile(format!("not a supported JPEG: {}", input.display()))
+        images.push(fs::read(input)?);
+    }
+    build_jpg_pdf_from_bytes(&images, page_size, fit_mode, margin_mm)
+}
+
+pub fn build_jpg_pdf_from_bytes(
+    images: &[Vec<u8>],
+    page_size: &str,
+    fit_mode: &str,
+    margin_mm: f32,
+) -> Result<Vec<u8>, PdfToolError> {
+    let total = images.len();
+    let mut parsed = Vec::new();
+    for (index, bytes) in images.iter().enumerate() {
+        let info = parse_jpeg_info(bytes).ok_or_else(|| {
+            PdfToolError::UnsupportedFile(format!(
+                "not a supported JPEG: image {} of {}",
+                index + 1,
+                total
+            ))
         })?;
-        images.push((bytes, info));
+        parsed.push((bytes, info));
     }
 
     let page_count = images.len();
@@ -836,7 +884,7 @@ pub fn build_jpg_pdf(
         .join(" ");
     objects.push(format!("<< /Type /Pages /Kids [{kids}] /Count {page_count} >>").into_bytes());
 
-    for (index, (bytes, info)) in images.iter().enumerate() {
+    for (index, (bytes, info)) in parsed.iter().enumerate() {
         let page_obj = 3 + index * 3;
         let content_obj = page_obj + 1;
         let image_obj = page_obj + 2;

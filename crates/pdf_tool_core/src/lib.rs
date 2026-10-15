@@ -7,13 +7,18 @@ mod page_ranges;
 pub use dependencies::{
     detect_dependencies, detect_dependencies_with_roots, DependencyInfo, DependencySet,
 };
-pub use image_optimize::{downsample_dct_images, ImageOptimizeSettings};
+pub use image_optimize::{
+    downsample_dct_images, downsample_dct_images_bytes, ImageOptimizeSettings,
+};
 pub use jobs::{
     CompressionProfile, JobProgress, JobRequest, JobResult, Operation, OperationOptions,
     OrganizePage, PdfPreview, PdfPreviewPage, PdfPreviewRequest, PdfToolError, ProtectPermissions,
     ToolId,
 };
+#[cfg(feature = "render")]
+pub use operations::render_pdf_preview;
 pub use operations::{
-    build_jpg_pdf, render_pdf_preview, run_job, run_job_with_dependency_roots,
+    build_jpg_pdf, build_jpg_pdf_from_bytes, compress_arguments, page_spec, protect_arguments,
+    run_job, run_job_with_dependency_roots,
 };
-pub use page_ranges::{parse_page_ranges, PageSelection};
+pub use page_ranges::{parse_page_ranges, qpdf_range, PageSelection};

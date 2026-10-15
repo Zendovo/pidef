@@ -102,6 +102,26 @@ Useful compression notes:
 5. Recreate bundled engine cache and verify release packaging.
 6. Build a small fixture suite for real PDFs, including encrypted, image-heavy, rotated, scanned, and text-heavy files.
 
+## Web Build
+
+Pidef also runs fully client-side in the browser from the same repo and UI:
+
+- `crates/pdf_tool_core_wasm` (wasm-bindgen) exports the custom algorithms
+  (JPG-to-PDF, QDF image optimizer) and the qpdf argument/spec builders, so
+  CLI semantics stay defined once in Rust. Rebuild with `npm run build:wasm`
+  (wasm-pack); the generated package is committed under `src/generated/`.
+- `src/web/` holds the browser engine: `engine.worker.ts` runs jobs with
+  qpdf wasm (`@neslinesli93/qpdf-wasm`) + the core wasm + PDFium wasm
+  (`@embedpdf/pdfium`); previews render on the main thread via `pdfium.ts`.
+- `src/platform.ts` abstracts dialogs, file drops, and output saving
+  (Tauri dialog/save_output on desktop; file input, File System Access API
+  with download fallback in the browser). Browser files live in an in-memory
+  registry (`src/web/registry.ts`) with synthetic `/pidef/<id>/<name>` paths.
+- Office conversion is desktop-only; recent files are hidden on web.
+- `npm run dev` + a browser exercises the web runtime; `npm run e2e:web`
+  (needs `npm run dev` or `npm run preview` running) drives merge, compress,
+  split, and save flows through Playwright and fails on console errors.
+
 ## Common Commands
 
 ```sh

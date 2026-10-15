@@ -2294,6 +2294,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pdf_tool_core_wasm"
+version = "0.2.0"
+dependencies = [
+ "js-sys",
+ "pdf_tool_core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "pdfium-render"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

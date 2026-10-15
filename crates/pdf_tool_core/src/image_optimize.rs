@@ -42,10 +42,23 @@ pub fn downsample_dct_images(
     qdf_path: &Path,
     settings: &ImageOptimizeSettings,
 ) -> Result<usize, PdfToolError> {
-    let mut document = QdfDocument::load(qdf_path)?;
+    let data = fs::read(qdf_path)?;
+    let (rewritten, changed) = downsample_dct_images_bytes(data, settings)?;
+    if changed > 0 {
+        fs::write(qdf_path, rewritten)?;
+    }
+    Ok(changed)
+}
+
+/// Byte-level variant used by the web engine (no filesystem involved).
+pub fn downsample_dct_images_bytes(
+    data: Vec<u8>,
+    settings: &ImageOptimizeSettings,
+) -> Result<(Vec<u8>, usize), PdfToolError> {
+    let mut document = QdfDocument::load_from_bytes(data);
     let images = document.find_dct_image_objects();
     if images.is_empty() {
-        return Ok(0);
+        return Ok((document.data, 0));
     }
 
     let mut effective: HashMap<u32, f64> = HashMap::new();
@@ -139,9 +152,8 @@ pub fn downsample_dct_images(
 
     if changed > 0 {
         document.apply(edits);
-        fs::write(qdf_path, document.data)?;
     }
-    Ok(changed)
+    Ok((document.data, changed))
 }
 
 fn downsampled_dimension(current: u32, factor: f64) -> u32 {
@@ -192,11 +204,6 @@ struct ObjectEntry {
 }
 
 impl QdfDocument {
-    fn load(path: &Path) -> Result<Self, PdfToolError> {
-        let data = fs::read(path)?;
-        Ok(Self::load_from_bytes(data))
-    }
-
     fn load_from_bytes(data: Vec<u8>) -> Self {
         let mut objects = BTreeMap::new();
         let mut search_from = 0usize;

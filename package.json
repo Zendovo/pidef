@@ -13,9 +13,13 @@
     "package:app": "npm run verify:engines && npm run tauri build -- --bundles app",
     "package:release": "npm run verify:engines && npm run tauri build",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:wasm": "wasm-pack build crates/pdf_tool_core_wasm --target web --release --out-dir ../../src/generated/pdf_tool_core_wasm",
+    "e2e:web": "node scripts/e2e-web.mjs"
   },
   "dependencies": {
+    "@embedpdf/pdfium": "^2.15.1",
+    "@neslinesli93/qpdf-wasm": "^0.3.0",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-process": "^2.3.1",
@@ -29,8 +33,10 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "playwright": "^1.64.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vitest": "^2.1.4"
+    "vitest": "^2.1.4",
+    "wasm-pack": "^0.15.0"
   }
 }

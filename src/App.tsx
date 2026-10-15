@@ -1,6 +1,4 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   ArrowRight,
   CheckCircle2,
@@ -21,6 +19,13 @@ import {
   X,
 } from "lucide-react";
 import { type CSSProperties, PointerEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  canReopenRecentFiles,
+  pickFiles as pickFilesFromPlatform,
+  saveFileOutput,
+  saveMultiOutputs,
+  subscribeToFileDrop,
+} from "./platform";
 import { invokeCommand, isTauriRuntime } from "./runtime";
 import { toolById, tools, type ToolDefinition, type ToolId } from "./tools";
 import type { DependencySet, JobResult, JobState, OperationOptions, PdfPreview } from "./types";
@@ -310,28 +315,15 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
-
-    let unlisten: (() => void) | undefined;
-    void getCurrentWindow()
-      .onDragDropEvent((event) => {
-        if (event.payload.type === "over") {
-          setIsDraggingFiles(true);
-          return;
+    return subscribeToFileDrop({
+      onOver: () => setIsDraggingFiles(true),
+      onLeave: () => setIsDraggingFiles(false),
+      onDrop: (paths) => {
+        if (paths.length > 0) {
+          applySelectedFiles(paths);
         }
-
-        if (event.payload.type === "drop") {
-          if (event.payload.paths.length > 0) {
-            applySelectedFiles(event.payload.paths);
-          }
-        }
-        setIsDraggingFiles(false);
-      })
-      .then((listener) => {
-        unlisten = listener;
-      });
-
-    return () => unlisten?.();
+      },
+    });
   }, [activeView, selectedToolId, form]);
 
   const dependencyList = useMemo(
@@ -352,27 +344,25 @@ export function App() {
   }
 
   async function pickFiles() {
-    const picked = await open({
+    const picked = await pickFilesFromPlatform({
       title: `Choose files for ${selectedTool.title}`,
       multiple: selectedTool.needsMultipleInputs,
       filters: dialogFilters(selectedToolId),
-      fileAccessMode: "scoped",
     });
 
-    if (!picked) return;
-    applySelectedFiles(Array.isArray(picked) ? picked : [picked]);
+    if (picked.length === 0) return;
+    applySelectedFiles(picked);
   }
 
   async function pickCommandCenterFiles() {
-    const picked = await open({
+    const picked = await pickFilesFromPlatform({
       title: "Choose files for Pidef",
       multiple: true,
       filters: commandCenterFilters(),
-      fileAccessMode: "scoped",
     });
 
-    if (!picked) return;
-    applyCommandCenterFiles(Array.isArray(picked) ? picked : [picked]);
+    if (picked.length === 0) return;
+    applyCommandCenterFiles(picked);
   }
 
   function activateTool(toolId: ToolId, paths: string[] = []) {
@@ -588,32 +578,22 @@ export function App() {
 
     if (job.result.outputs.length === 1) {
       const source = job.result.outputs[0];
-      const destination = await save({
+      const saved = await saveFileOutput(source, {
         title: `Save As ${job.title}`,
-        defaultPath: suggestedOutputName(job.tool, source),
+        defaultName: suggestedOutputName(job.tool, source),
         filters: outputFilters(job.tool),
       });
-      if (!destination) return false;
-      await invokeCommand("save_output", { source, destination });
-      markSaved(job.id, destination, job.tool);
+      if (!saved) return false;
+      markSaved(job.id, saved, job.tool);
       return true;
     }
 
-    const folder = await open({
-      title: `Choose Save As folder for ${job.title} outputs`,
-      directory: true,
-      multiple: false,
-      canCreateDirectories: true,
+    const saved = await saveMultiOutputs(job.result.outputs, {
+      title: `Save As ${job.title} outputs`,
+      baseName: toolById[job.tool].title.replace(/\s+/g, "-").toLowerCase(),
     });
-    if (!folder || Array.isArray(folder)) return false;
-
-    for (const source of job.result.outputs) {
-      await invokeCommand("save_output", {
-        source,
-        destination: `${folder}/${basename(source)}`,
-      });
-    }
-    markSaved(job.id, folder, job.tool);
+    if (!saved) return false;
+    markSaved(job.id, saved, job.tool);
     return true;
   }
 
@@ -659,6 +639,7 @@ export function App() {
     selectedToolId === "organizePdf" ? canRun && organizeItems.length > 0 : canRun;
   const isSettingsView = activeView === "settings";
   const isHomeView = activeView === "home";
+  const restorableRecentFiles = canReopenRecentFiles() ? recentFiles : [];
   const activeJob = jobs.find((job) => job.tool === selectedToolId) ?? null;
   const hasOutput = Boolean(activeJob?.status === "complete" && activeJob.result);
   const splitGroups = useMemo(
@@ -784,7 +765,7 @@ export function App() {
             dragging={isDraggingFiles}
             files={commandFiles}
             operationOptions={operationOptions}
-            recentFiles={recentFiles}
+            recentFiles={restorableRecentFiles}
             onOpenFile={(path) => applyCommandCenterFiles([path])}
             onPickFiles={pickCommandCenterFiles}
             onRemoveFile={removeCommandFile}
@@ -824,7 +805,7 @@ export function App() {
                         : "Drop a file here or choose a file"
                     }
                   />
-                  <RecentFiles files={recentFiles} onOpenFile={(path) => applySelectedFiles([path])} />
+                  <RecentFiles files={restorableRecentFiles} onOpenFile={(path) => applySelectedFiles([path])} />
                 </>
               ) : selectedToolId === "organizePdf" ? (
                 <OrganizeBoard
@@ -917,7 +898,7 @@ export function App() {
                     <SelectedFilesPanel
                       files={selectedFiles}
                       multiple={selectedTool.needsMultipleInputs}
-                      recentFiles={recentFiles.slice(0, 5)}
+                      recentFiles={restorableRecentFiles.slice(0, 5)}
                       onAddFile={pickFiles}
                       onOpenFile={pickFiles}
                       onPickRecentFile={(path) => applySelectedFiles([path])}
@@ -985,6 +966,7 @@ function SettingsView({
 }) {
   const runtimeRows = dependencies.length > 0 ? dependencies : [];
   const unavailableTools = operationOptions.filter((option) => option.unavailableReason);
+  const showUpdates = isTauriRuntime();
 
   const updateCopy: Record<UpdateState["status"], string> = {
     idle: "Updates are checked automatically when Pidef starts.",
@@ -999,27 +981,29 @@ function SettingsView({
 
   return (
     <div className="settings-grid">
-      <section className="settings-panel">
-        <div className="settings-heading">
-          <h3>Updates</h3>
-          <button
-            className="save-button compact"
-            disabled={updateBusy || updateState.status === "installing"}
-            onClick={() => void onCheckForUpdates()}
-            type="button"
-          >
-            {updateBusy ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
-            {updateState.status === "available" ? "Refresh" : "Check now"}
-          </button>
-        </div>
-        <p className="update-status">{updateCopy[updateState.status]}</p>
-        {updateState.status === "available" ? (
-          <button className="save-button" onClick={() => void onInstallUpdate()} type="button">
-            <Download size={15} />
-            Download and restart
-          </button>
-        ) : null}
-      </section>
+      {showUpdates ? (
+        <section className="settings-panel">
+          <div className="settings-heading">
+            <h3>Updates</h3>
+            <button
+              className="save-button compact"
+              disabled={updateBusy || updateState.status === "installing"}
+              onClick={() => void onCheckForUpdates()}
+              type="button"
+            >
+              {updateBusy ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+              {updateState.status === "available" ? "Refresh" : "Check now"}
+            </button>
+          </div>
+          <p className="update-status">{updateCopy[updateState.status]}</p>
+          {updateState.status === "available" ? (
+            <button className="save-button" onClick={() => void onInstallUpdate()} type="button">
+              <Download size={15} />
+              Download and restart
+            </button>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="settings-panel">
         <div className="settings-heading">

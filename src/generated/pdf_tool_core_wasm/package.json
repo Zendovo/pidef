@@ -1,0 +1,16 @@
+{
+  "name": "pdf_tool_core_wasm",
+  "type": "module",
+  "version": "0.2.0",
+  "license": "MIT",
+  "files": [
+    "pdf_tool_core_wasm_bg.wasm",
+    "pdf_tool_core_wasm.js",
+    "pdf_tool_core_wasm.d.ts"
+  ],
+  "main": "pdf_tool_core_wasm.js",
+  "types": "pdf_tool_core_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

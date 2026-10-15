@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/pdf_tool_core", "src-tauri"]
+members = ["crates/pdf_tool_core", "crates/pdf_tool_core_wasm", "src-tauri"]
 resolver = "2"
 
 [workspace.package]

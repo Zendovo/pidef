@@ -547,11 +547,52 @@ textarea:focus {
   border-radius: 8px;
   display: grid;
   gap: 12px;
+  overflow: hidden;
   padding: 14px;
+  position: relative;
   transition:
     background 160ms ease,
     border-color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.drop-zone::after {
+  background: linear-gradient(
+    100deg,
+    transparent 12%,
+    color-mix(in srgb, var(--tool-accent, #1573ff) 20%, rgba(255, 255, 255, 0.4)) 35%,
+    rgba(255, 255, 255, 0.85) 50%,
+    color-mix(in srgb, var(--tool-accent, #1573ff) 20%, rgba(255, 255, 255, 0.4)) 65%,
+    transparent 88%
+  );
+  bottom: -22%;
+  content: "";
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: -22%;
+  transform: translateX(-170%) skewX(-14deg);
+  width: 44%;
+  z-index: 2;
+}
+
+.drop-zone:hover::after {
+  animation: drop-zone-sheen 900ms cubic-bezier(0.3, 0.55, 0.35, 1) 1;
+}
+
+@keyframes drop-zone-sheen {
+  0% {
+    opacity: 1;
+    transform: translateX(-170%) skewX(-14deg);
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(420%) skewX(-14deg);
+  }
 }
 
 .drop-zone.dragging {
@@ -637,7 +678,34 @@ textarea:focus {
   gap: 6px;
   justify-items: center;
   min-height: 178px;
+  overflow: hidden;
   padding: 24px;
+  position: relative;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.home-drop-action:hover {
+  animation: home-drop-drift 5.5s ease-in-out infinite alternate;
+  background-image: linear-gradient(
+    115deg,
+    color-mix(in srgb, #1573ff 11%, rgba(255, 255, 255, 0.92)),
+    rgba(247, 250, 253, 0.66) 45%,
+    color-mix(in srgb, #1573ff 9%, rgba(255, 255, 255, 0.9)) 100%
+  );
+  background-size: 220% 100%;
+  border-color: color-mix(in srgb, #1573ff 28%, rgba(255, 255, 255, 0.7));
+  box-shadow: 0 14px 34px rgba(21, 115, 255, 0.12);
+}
+
+@keyframes home-drop-drift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
 }
 
 .home-drop-action span {
@@ -680,9 +748,7 @@ textarea:focus {
 
 .home-action {
   align-items: center;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 12%, transparent), transparent 42%),
-    rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.46);
   border: 1px solid color-mix(in srgb, var(--tool-accent) 22%, rgba(255, 255, 255, 0.58));
   border-radius: 8px;
   color: inherit;
@@ -698,11 +764,29 @@ textarea:focus {
   text-align: left;
 }
 
+.home-action::before {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tool-accent) 22%, transparent),
+    color-mix(in srgb, var(--tool-accent) 7%, transparent) 55%,
+    transparent 80%
+  );
+  clip-path: inset(0 100% 0 0);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: clip-path 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 1;
+}
+
+.home-action:hover::before {
+  clip-path: inset(0 0 0 0);
+}
+
 .home-action:hover {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 18%, transparent), transparent 46%),
-    rgba(255, 255, 255, 0.68);
-  border-color: color-mix(in srgb, var(--tool-accent) 36%, rgba(255, 255, 255, 0.66));
+  background: rgba(255, 255, 255, 0.72);
+  border-color: color-mix(in srgb, var(--tool-accent) 44%, rgba(255, 255, 255, 0.66));
 }
 
 .home-action:disabled {
@@ -729,7 +813,15 @@ textarea:focus {
   right: 28px;
   top: 50%;
   transform: translateY(-50%) rotate(-8deg);
+  transition:
+    opacity 320ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 0;
+}
+
+.home-action:hover .home-action-watermark {
+  opacity: 0.32;
+  transform: translateY(-50%) rotate(-8deg) scale(1.14);
 }
 
 .home-action strong,
@@ -2007,9 +2099,7 @@ textarea,
 }
 
 .home-action {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 18%, transparent), transparent 48%),
-    rgba(255, 255, 255, 0.085);
+  background: rgba(255, 255, 255, 0.085);
   border-color: color-mix(in srgb, var(--tool-accent) 34%, rgba(255, 255, 255, 0.16));
 }
 
@@ -2022,10 +2112,18 @@ textarea,
 }
 
 .home-action:hover {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 26%, transparent), transparent 52%),
-    rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.15);
   border-color: color-mix(in srgb, var(--tool-accent) 46%, rgba(255, 255, 255, 0.22));
+}
+
+.home-drop-action:hover {
+  background-image: linear-gradient(
+    115deg,
+    color-mix(in srgb, #4d9fff 14%, rgba(255, 255, 255, 0.06)),
+    rgba(255, 255, 255, 0.04) 45%,
+    color-mix(in srgb, #4d9fff 10%, rgba(255, 255, 255, 0.06)) 100%
+  );
+  border-color: color-mix(in srgb, #4d9fff 32%, rgba(255, 255, 255, 0.2));
 }
 
 .icon-button,
@@ -2426,9 +2524,7 @@ textarea,
 }
 
 :root[data-theme="light"] .home-action {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 22%, rgba(255, 255, 255, 0.22)), transparent 54%),
-    rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.84);
   border-color: color-mix(in srgb, var(--tool-accent) 46%, rgba(39, 39, 42, 0.2));
   box-shadow:
     0 10px 22px rgba(39, 39, 42, 0.055),
@@ -2436,9 +2532,7 @@ textarea,
 }
 
 :root[data-theme="light"] .home-action:hover {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--tool-accent) 30%, rgba(255, 255, 255, 0.2)), transparent 58%),
-    rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.94);
   border-color: color-mix(in srgb, var(--tool-accent) 62%, rgba(39, 39, 42, 0.22));
   box-shadow:
     0 12px 24px rgba(39, 39, 42, 0.075),
@@ -2461,6 +2555,24 @@ textarea,
 
 :root[data-theme="light"] .home-action-watermark {
   opacity: 0.13;
+}
+
+:root[data-theme="light"] .home-action:hover .home-action-watermark {
+  opacity: 0.34;
+}
+
+:root[data-theme="light"] .home-drop-action:hover {
+  animation: home-drop-drift 5.5s ease-in-out infinite alternate;
+  background-color: rgba(255, 255, 255, 0.92);
+  background-image: linear-gradient(
+    115deg,
+    color-mix(in srgb, #1573ff 12%, rgba(255, 255, 255, 0.95)),
+    rgba(255, 255, 255, 0.9) 45%,
+    color-mix(in srgb, #1573ff 9%, rgba(255, 255, 255, 0.93)) 100%
+  );
+  background-size: 220% 100%;
+  border-color: color-mix(in srgb, #1573ff 30%, rgba(39, 39, 42, 0.18));
+  box-shadow: 0 14px 34px rgba(21, 115, 255, 0.1);
 }
 
 :root[data-theme="light"] .tool-button.selected,
@@ -2576,5 +2688,25 @@ textarea,
   .options-panel {
     max-height: none;
     position: static;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-action::before,
+  .home-action-watermark {
+    transition: none;
+  }
+
+  .home-action:hover::before {
+    clip-path: inset(0 0 0 0);
+  }
+
+  .drop-zone:hover::after {
+    animation: none;
+  }
+
+  .home-drop-action:hover {
+    animation: none;
+    background-position: 50% 50%;
   }
 }

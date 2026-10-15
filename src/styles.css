@@ -2678,27 +2678,43 @@ textarea,
 }
 
 .home-orb-a {
-  background: rgba(244, 197, 168, 0.5);
-  height: 520px;
-  right: -150px;
-  top: -230px;
-  width: 520px;
+  background: rgba(200, 184, 224, 0.5);
+  height: 480px;
+  left: -240px;
+  top: -220px;
+  width: 480px;
 }
 
 .home-orb-b {
-  background: rgba(167, 229, 211, 0.4);
-  bottom: -260px;
-  height: 500px;
-  right: 20px;
-  width: 500px;
+  background: rgba(167, 229, 211, 0.42);
+  height: 460px;
+  left: 38%;
+  top: -240px;
+  width: 460px;
 }
 
 .home-orb-c {
-  background: rgba(200, 184, 224, 0.34);
-  height: 430px;
-  right: -190px;
-  top: 34%;
-  width: 430px;
+  background: rgba(244, 197, 168, 0.48);
+  height: 440px;
+  right: -160px;
+  top: 70px;
+  width: 440px;
+}
+
+.home-orb-d {
+  background: rgba(200, 184, 224, 0.42);
+  height: 420px;
+  left: -120px;
+  top: 56%;
+  width: 420px;
+}
+
+.home-orb-e {
+  background: rgba(168, 200, 232, 0.42);
+  height: 380px;
+  left: 120px;
+  top: 72%;
+  width: 380px;
 }
 
 .home-hero,
@@ -2974,15 +2990,23 @@ textarea,
 
 @media (prefers-color-scheme: dark) {
   .home-orb-a {
-    background: rgba(196, 140, 115, 0.17);
+    background: rgba(139, 126, 175, 0.18);
   }
 
   .home-orb-b {
-    background: rgba(94, 150, 130, 0.15);
+    background: rgba(94, 150, 130, 0.17);
   }
 
   .home-orb-c {
-    background: rgba(139, 126, 175, 0.12);
+    background: rgba(196, 140, 115, 0.16);
+  }
+
+  .home-orb-d {
+    background: rgba(139, 126, 175, 0.14);
+  }
+
+  .home-orb-e {
+    background: rgba(120, 150, 180, 0.13);
   }
 
   .home-hero h1 {
@@ -3098,15 +3122,23 @@ textarea,
 }
 
 :root[data-theme="light"] .home-orb-a {
-  background: rgba(244, 197, 168, 0.5);
+  background: rgba(200, 184, 224, 0.5);
 }
 
 :root[data-theme="light"] .home-orb-b {
-  background: rgba(167, 229, 211, 0.4);
+  background: rgba(167, 229, 211, 0.42);
 }
 
 :root[data-theme="light"] .home-orb-c {
-  background: rgba(200, 184, 224, 0.34);
+  background: rgba(244, 197, 168, 0.48);
+}
+
+:root[data-theme="light"] .home-orb-d {
+  background: rgba(200, 184, 224, 0.42);
+}
+
+:root[data-theme="light"] .home-orb-e {
+  background: rgba(168, 200, 232, 0.42);
 }
 
 :root[data-theme="light"] .home-hero h1 {

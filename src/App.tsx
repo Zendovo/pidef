@@ -769,6 +769,8 @@ export function App() {
             <div className="home-orb home-orb-a" />
             <div className="home-orb home-orb-b" />
             <div className="home-orb home-orb-c" />
+            <div className="home-orb home-orb-d" />
+            <div className="home-orb home-orb-e" />
           </div>
         ) : null}
         {!isHomeView ? (

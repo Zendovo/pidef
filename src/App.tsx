@@ -100,6 +100,7 @@ export function App() {
     const stored = localStorage.getItem("appearance");
     return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
   });
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [dependencies, setDependencies] = useState<DependencySet | null>(null);
   const [operationOptions, setOperationOptions] = useState<OperationOptions[]>([]);
   const [form, setForm] = useState<FormState>(() => initialForm(toolById.mergePdf));
@@ -157,6 +158,7 @@ export function App() {
       document.documentElement.dataset.theme = resolved;
       document.documentElement.dataset.appearance = appearance;
       localStorage.setItem("appearance", appearance);
+      setResolvedTheme(resolved === "light" ? "light" : "dark");
     };
 
     applyAppearance();
@@ -950,15 +952,12 @@ export function App() {
                     </p>
                   ) : null}
 
-                  <button
-                    className="run-button"
-                    type="button"
+                  <OperationRunButton
                     disabled={!canRunSelectedTool}
-                    onClick={() => void runSelectedJob()}
-                  >
-                    <ArrowRight size={16} />
-                    {runActionLabel(selectedToolId)}
-                  </button>
+                    overLight={resolvedTheme === "light"}
+                    tool={selectedToolId}
+                    onRun={() => void runSelectedJob()}
+                  />
                   <CurrentJobStatus job={activeJob} />
                 </>
               )}
@@ -1307,6 +1306,51 @@ function SelectedFileStage({
         ))}
       </div>
     </section>
+  );
+}
+
+function OperationRunButton({
+  tool,
+  disabled,
+  overLight,
+  onRun,
+}: {
+  tool: ToolId;
+  disabled: boolean;
+  overLight: boolean;
+  onRun: () => void;
+}) {
+  const label = runActionLabel(tool);
+
+  if (disabled) {
+    return (
+      <button className="run-button" disabled type="button">
+        <ArrowRight size={16} />
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div className="run-button run-button-shell">
+      <LiquidGlass
+        aberrationIntensity={1.2}
+        blurAmount={0.08}
+        cornerRadius={8}
+        displacementScale={44}
+        elasticity={0.2}
+        mode="standard"
+        overLight={overLight}
+        padding="0px"
+        saturation={128}
+        style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: "100%" }}
+      >
+        <button className="run-button run-button-glass" onClick={onRun} type="button">
+          <ArrowRight size={16} />
+          {label}
+        </button>
+      </LiquidGlass>
+    </div>
   );
 }
 
@@ -1921,59 +1965,42 @@ function PageZoomModal({ zoom, onClose }: { zoom: ZoomState; onClose: () => void
 
   return (
     <div className="zoom-overlay" onClick={onClose} role="presentation">
-      <LiquidGlass
-        aberrationIntensity={1.4}
-        blurAmount={0.12}
-        cornerRadius={14}
-        displacementScale={58}
-        elasticity={0.18}
-        mode="standard"
-        overLight={false}
-        padding="0px"
-        saturation={130}
-        style={{ position: "fixed", top: "50%", left: "50%" }}
-      >
-        <div
-          className="zoom-modal"
-          onClick={(event) => event.stopPropagation()}
-          role="dialog"
-        >
-          <header>
-            <div>
-              <strong>{zoom.title}</strong>
-              <span>Page {zoom.pageNumber}</span>
-            </div>
-            <button onClick={onClose} title="Close" type="button">
-              <X size={16} />
-            </button>
-          </header>
-          <div className="zoom-body">
-            {zoom.status === "loading" ? (
-              <div className="zoom-state">
-                <Loader2 className="spin" size={18} />
-                <span>Rendering page…</span>
-              </div>
-            ) : null}
-            {zoom.status === "error" ? (
-              <div className="zoom-state error">
-                <CircleAlert size={16} />
-                <span>{zoom.message ?? "Could not render this page."}</span>
-              </div>
-            ) : null}
-            {zoom.status === "ready" && zoom.src ? (
-              <img
-                alt={`Page ${zoom.pageNumber} enlarged`}
-                src={zoom.src}
-                style={
-                  zoom.rotateDegrees
-                    ? { transform: `rotate(${zoom.rotateDegrees}deg)` }
-                    : undefined
-                }
-              />
-            ) : null}
+      <div className="zoom-modal" onClick={(event) => event.stopPropagation()} role="dialog">
+        <header>
+          <div>
+            <strong>{zoom.title}</strong>
+            <span>Page {zoom.pageNumber}</span>
           </div>
+          <button onClick={onClose} title="Close" type="button">
+            <X size={16} />
+          </button>
+        </header>
+        <div className="zoom-body">
+          {zoom.status === "loading" ? (
+            <div className="zoom-state">
+              <Loader2 className="spin" size={18} />
+              <span>Rendering page…</span>
+            </div>
+          ) : null}
+          {zoom.status === "error" ? (
+            <div className="zoom-state error">
+              <CircleAlert size={16} />
+              <span>{zoom.message ?? "Could not render this page."}</span>
+            </div>
+          ) : null}
+          {zoom.status === "ready" && zoom.src ? (
+            <img
+              alt={`Page ${zoom.pageNumber} enlarged`}
+              src={zoom.src}
+              style={
+                zoom.rotateDegrees
+                  ? { transform: `rotate(${zoom.rotateDegrees}deg)` }
+                  : undefined
+              }
+            />
+          ) : null}
         </div>
-      </LiquidGlass>
+      </div>
     </div>
   );
 }

@@ -1476,13 +1476,17 @@ textarea:focus {
 }
 
 .zoom-modal {
-  border-radius: 14px;
+  background: #1b1b20;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   display: grid;
   gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
-  height: min(80vh, 780px);
+  max-height: 100%;
+  max-width: min(920px, 100%);
   overflow: hidden;
-  width: min(920px, calc(100vw - 64px));
+  width: 100%;
 }
 
 .zoom-modal header {
@@ -1534,7 +1538,7 @@ textarea:focus {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
-  max-height: 100%;
+  max-height: calc(100vh - 190px);
   max-width: 100%;
   object-fit: contain;
 }
@@ -1548,6 +1552,37 @@ textarea:focus {
 
 .zoom-state.error {
   color: #fca5a5;
+}
+
+:root[data-theme="light"] .zoom-modal {
+  background: #ffffff;
+  border-color: rgba(39, 39, 42, 0.16);
+}
+
+:root[data-theme="light"] .zoom-modal header {
+  border-color: rgba(39, 39, 42, 0.1);
+}
+
+:root[data-theme="light"] .zoom-modal header strong {
+  color: #18181b;
+}
+
+:root[data-theme="light"] .zoom-modal header span {
+  color: #52525b;
+}
+
+:root[data-theme="light"] .zoom-modal header button {
+  background: rgba(39, 39, 42, 0.06);
+  border-color: rgba(39, 39, 42, 0.14);
+  color: #27272a;
+}
+
+:root[data-theme="light"] .zoom-body img {
+  border-color: rgba(39, 39, 42, 0.16);
+}
+
+:root[data-theme="light"] .zoom-state {
+  color: #52525b;
 }
 
 :root[data-theme="light"] .preview-thumb.clickable:hover figcaption {
@@ -2625,4 +2660,23 @@ textarea,
     animation: none;
     background-position: 50% 50%;
   }
+}
+
+/* Run button: existing gradient stays as the underlay; the liquid glass
+   layer provides refraction, edge highlights, and elasticity. */
+.run-button.run-button-shell {
+  box-shadow: none;
+  padding: 0;
+  position: relative;
+  width: 100%;
+}
+
+.run-button.run-button-shell .glass {
+  width: 100%;
+}
+
+.run-button.run-button-glass {
+  background: transparent;
+  box-shadow: none;
+  width: 100%;
 }

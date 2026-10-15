@@ -51,7 +51,7 @@ LibreOffice detection/conversion code was removed entirely.
 - Jobs were renamed/reworked toward History; avoid showing technical temp paths.
 - Only the Pidef brand and main operation/page headings should use serif italic styling.
 - Operation cards use per-tool colors, subtle background action icons, and matching hover/drop-zone tint. Hover animations: cards extend their existing accent gradient, the home drop area drifts a soft gradient, and tool drop areas displace their existing gradient.
-- The page zoom modal is wrapped in `liquid-glass-react` (Apple Liquid Glass). Safari/WKWebView only partially support the displacement layer, so it degrades to a frosted panel there; verify changes in Chromium and in the Tauri app.
+- The operation run buttons ("Merge PDFs", "Compress PDF", …) use `liquid-glass-react` over their existing gradient underlay. Safari/WKWebView only partially support the displacement layer, so they degrade to a frosted look there; verify changes in Chromium and in the Tauri app.
 - Light and dark contrast have been actively tuned; keep checking both themes visually.
 
 ## Current Worktree State

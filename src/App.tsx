@@ -1,4 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
+import LiquidGlass from "liquid-glass-react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -1920,42 +1921,59 @@ function PageZoomModal({ zoom, onClose }: { zoom: ZoomState; onClose: () => void
 
   return (
     <div className="zoom-overlay" onClick={onClose} role="presentation">
-      <div className="zoom-modal" onClick={(event) => event.stopPropagation()} role="dialog">
-        <header>
-          <div>
-            <strong>{zoom.title}</strong>
-            <span>Page {zoom.pageNumber}</span>
+      <LiquidGlass
+        aberrationIntensity={1.4}
+        blurAmount={0.12}
+        cornerRadius={14}
+        displacementScale={58}
+        elasticity={0.18}
+        mode="standard"
+        overLight={false}
+        padding="0px"
+        saturation={130}
+        style={{ position: "fixed", top: "50%", left: "50%" }}
+      >
+        <div
+          className="zoom-modal"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+        >
+          <header>
+            <div>
+              <strong>{zoom.title}</strong>
+              <span>Page {zoom.pageNumber}</span>
+            </div>
+            <button onClick={onClose} title="Close" type="button">
+              <X size={16} />
+            </button>
+          </header>
+          <div className="zoom-body">
+            {zoom.status === "loading" ? (
+              <div className="zoom-state">
+                <Loader2 className="spin" size={18} />
+                <span>Rendering page…</span>
+              </div>
+            ) : null}
+            {zoom.status === "error" ? (
+              <div className="zoom-state error">
+                <CircleAlert size={16} />
+                <span>{zoom.message ?? "Could not render this page."}</span>
+              </div>
+            ) : null}
+            {zoom.status === "ready" && zoom.src ? (
+              <img
+                alt={`Page ${zoom.pageNumber} enlarged`}
+                src={zoom.src}
+                style={
+                  zoom.rotateDegrees
+                    ? { transform: `rotate(${zoom.rotateDegrees}deg)` }
+                    : undefined
+                }
+              />
+            ) : null}
           </div>
-          <button onClick={onClose} title="Close" type="button">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="zoom-body">
-          {zoom.status === "loading" ? (
-            <div className="zoom-state">
-              <Loader2 className="spin" size={18} />
-              <span>Rendering page…</span>
-            </div>
-          ) : null}
-          {zoom.status === "error" ? (
-            <div className="zoom-state error">
-              <CircleAlert size={16} />
-              <span>{zoom.message ?? "Could not render this page."}</span>
-            </div>
-          ) : null}
-          {zoom.status === "ready" && zoom.src ? (
-            <img
-              alt={`Page ${zoom.pageNumber} enlarged`}
-              src={zoom.src}
-              style={
-                zoom.rotateDegrees
-                  ? { transform: `rotate(${zoom.rotateDegrees}deg)` }
-                  : undefined
-              }
-            />
-          ) : null}
         </div>
-      </div>
+      </LiquidGlass>
     </div>
   );
 }

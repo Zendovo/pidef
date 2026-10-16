@@ -865,12 +865,6 @@ export function App() {
             }`}
           >
             <div data-tauri-drag-region>
-              {selectedToolId === "splitPdf" && activeView === "splitPdf" ? (
-                <p className="breadcrumb">
-                  <span className="breadcrumb-dot" />
-                  DOCUMENT STUDIO / SPLIT
-                </p>
-              ) : null}
               <h2>
                 {activeView === "history"
                   ? "History"

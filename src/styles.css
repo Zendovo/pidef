@@ -3487,26 +3487,6 @@ textarea,
   font-size: 30px;
 }
 
-.breadcrumb {
-  align-items: center;
-  color: #a8a29e;
-  display: flex;
-  font-size: 10.5px;
-  font-weight: 700;
-  gap: 7px;
-  letter-spacing: 0.08em;
-  margin: 0 0 6px;
-  text-transform: uppercase;
-}
-
-.breadcrumb-dot {
-  background: #0c0a09;
-  border-radius: 999px;
-  display: inline-block;
-  height: 6px;
-  width: 6px;
-}
-
 .split-file-chip {
   align-items: center;
   background: #ffffff;
@@ -3866,15 +3846,16 @@ textarea,
 }
 
 .split-preview-card .preview-actions .save-button {
-  background: transparent;
-  border: 1px solid #d6d3d1;
-  color: #292524;
+  background: #0c0a09;
+  border: 0;
+  border-radius: 999px;
+  color: #fff8f2;
+  font-weight: 650;
+  padding: 9px 20px;
 }
 
 .split-preview-card .preview-actions .save-button:hover {
-  background: #0c0a09;
-  border-color: #0c0a09;
-  color: #fff8f2;
+  background: #292524;
 }
 
 .split-preview-card .preview-heading strong {
@@ -4369,14 +4350,6 @@ textarea,
 
 /* Dark theme */
 @media (prefers-color-scheme: dark) {
-  .breadcrumb {
-    color: #78716c;
-  }
-
-  .breadcrumb-dot {
-    background: #f5f4f0;
-  }
-
   .split-file-chip {
     background: rgba(28, 26, 24, 0.92);
     border-color: rgba(245, 244, 240, 0.09);
@@ -4523,13 +4496,13 @@ textarea,
   }
 
   .split-preview-card .preview-actions .save-button {
-    border-color: rgba(245, 244, 240, 0.16);
-    color: #e5e3dc;
+    background: #f5f4f0;
+    border: 0;
+    color: #141210;
   }
 
   .split-preview-card .preview-actions .save-button:hover {
-    background: #f5f4f0;
-    border-color: #f5f4f0;
+    background: #e5e3dc;
     color: #141210;
   }
 
@@ -4736,14 +4709,6 @@ textarea,
 }
 
 /* Forced light re-assertions */
-:root[data-theme="light"] .breadcrumb {
-  color: #a8a29e;
-}
-
-:root[data-theme="light"] .breadcrumb-dot {
-  background: #0c0a09;
-}
-
 :root[data-theme="light"] .split-file-chip {
   background: #ffffff;
   border-color: #e7e5e4;

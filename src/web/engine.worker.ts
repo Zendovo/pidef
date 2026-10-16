@@ -164,11 +164,13 @@ async function executeJob(
     case "splitPdf": {
       const { input, ranges, outputPattern } = request.operation;
       const groups = qpdf_ranges(ranges);
+      const fileStem = (input.split("/").pop() ?? "document").replace(/\.pdf$/i, "");
       const outputs: { name: string; bytes: Uint8Array }[] = [];
       const warnings: string[] = [];
       for (let index = 0; index < groups.length; index += 1) {
         const range = groups[index];
         const name = outputPattern
+          .replace("{filename}", fileStem)
           .replace("{n}", String(index + 1))
           .replace("{range}", range);
         const output = scratchPath(name);

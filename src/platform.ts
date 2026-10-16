@@ -4,6 +4,7 @@
 
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { zipSync } from "fflate";
 import { invokeCommand, isTauriRuntime } from "./runtime";
 import { getFileBytes, registerBrowserFiles } from "./web/registry";
 
@@ -83,6 +84,32 @@ export async function saveMultiOutputs(
     }
   }
   return `${sources.length} files`;
+}
+
+export async function saveZipOutputs(
+  sources: string[],
+  options: { title: string; zipName: string },
+): Promise<string | null> {
+  if (platformMode === "desktop") {
+    const destination = await save({
+      title: options.title,
+      defaultPath: options.zipName,
+      filters: [{ name: "ZIP", extensions: ["zip"] }],
+    });
+    if (!destination) return null;
+    await invokeCommand("save_outputs_zip", { sources, destination });
+    return destination;
+  }
+
+  const files: Record<string, Uint8Array> = {};
+  for (const source of sources) {
+    const bytes = getFileBytes(source);
+    if (bytes) {
+      files[source.split(/[\\/]/).pop() ?? "output.pdf"] = bytes;
+    }
+  }
+  const zipped = zipSync(files, { level: 6 });
+  return saveWebBytes(options.zipName, zipped, [{ name: "ZIP", extensions: ["zip"] }]);
 }
 
 export function subscribeToFileDrop(handlers: {
@@ -234,6 +261,8 @@ function mimeTypeFor(extension: string): string {
     case "jpg":
     case "jpeg":
       return "image/jpeg";
+    case "zip":
+      return "application/zip";
     default:
       return "application/octet-stream";
   }

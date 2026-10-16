@@ -49,7 +49,7 @@ const commonDefaults = {
   inputs: "",
   output: "",
   ranges: "1",
-  outputPattern: "split-{n}-{range}.pdf",
+  outputPattern: "{filename}_part_{n}.pdf",
   dpi: 200,
   quality: 90,
   profile: "balanced" as const,

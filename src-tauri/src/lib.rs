@@ -63,6 +63,14 @@ fn save_output(source: PathBuf, destination: PathBuf) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn save_outputs_zip(sources: Vec<PathBuf>, destination: PathBuf) -> Result<(), String> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    pdf_tool_core::zip_outputs(&sources, &destination).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn set_appearance(
     app: AppHandle,
     appearance: String,
@@ -173,6 +181,7 @@ pub fn run() {
             get_pdf_preview,
             get_file_size,
             save_output,
+            save_outputs_zip,
             set_appearance,
             set_native_sidebar_collapsed
         ])

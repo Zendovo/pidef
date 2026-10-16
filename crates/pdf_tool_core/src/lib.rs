@@ -3,6 +3,7 @@ mod image_optimize;
 mod jobs;
 mod operations;
 mod page_ranges;
+mod zip_outputs;
 
 pub use dependencies::{
     detect_dependencies, detect_dependencies_with_roots, DependencyInfo, DependencySet,
@@ -22,3 +23,4 @@ pub use operations::{
     run_job, run_job_with_dependency_roots,
 };
 pub use page_ranges::{parse_page_ranges, qpdf_range, PageSelection};
+pub use zip_outputs::zip_outputs;

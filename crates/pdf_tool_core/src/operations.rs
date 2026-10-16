@@ -293,9 +293,15 @@ fn run_split(
     fs::create_dir_all(output_dir)?;
 
     let mut outputs = Vec::new();
+    let file_stem = input
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("document")
+        .to_string();
     for (index, selection) in selections.iter().enumerate() {
         let range = qpdf_range(selection);
         let file_name = output_pattern
+            .replace("{filename}", &file_stem)
             .replace("{n}", &(index + 1).to_string())
             .replace("{range}", &range);
         let output = output_dir.join(file_name);

@@ -1,19 +1,25 @@
 import { getVersion } from "@tauri-apps/api/app";
 import {
+  ArrowLeftRight,
   ArrowRight,
   CheckCircle2,
   CircleAlert,
   Clock3,
+  Copy,
   Download,
   Eye,
   FilePlus2,
+  FileText,
   Files,
   Home,
+  Lightbulb,
+  ListOrdered,
   Loader2,
+  Plus,
   RefreshCw,
-  Settings,
-  Copy,
   RotateCw,
+  Settings,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -23,6 +29,7 @@ import {
   pickFiles as pickFilesFromPlatform,
   saveFileOutput,
   saveMultiOutputs,
+  saveZipOutputs,
   subscribeToFileDrop,
 } from "./platform";
 import { invokeCommand, isTauriRuntime } from "./runtime";
@@ -91,6 +98,7 @@ const RECENT_FILES_KEY = "pidef.recentFiles";
 const HISTORY_KEY = "pidef.history";
 const DEFAULT_VISIBLE_PAGES = 20;
 const SHOW_ALL_PREVIEW_LIMIT = 65_535;
+const DEFAULT_SPLIT_GROUPS = ["1-2"];
 
 export function App() {
   const [selectedToolId, setSelectedToolId] = useState<ToolId>("mergePdf");
@@ -122,6 +130,8 @@ export function App() {
   const [mergePreviews, setMergePreviews] = useState<Record<string, string>>({});
   const [draggedMergePath, setDraggedMergePath] = useState<string | null>(null);
   const [sourceFileSize, setSourceFileSize] = useState<number | null>(null);
+  const [splitGroups, setSplitGroups] = useState<string[]>(DEFAULT_SPLIT_GROUPS);
+  const [packageZip, setPackageZip] = useState(true);
   const [zoomState, setZoomState] = useState<ZoomState | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>({
@@ -256,7 +266,10 @@ export function App() {
   }, [selectedToolId, form.inputs.join("|")]);
 
   useEffect(() => {
-    if (selectedToolId !== "compressPdf" || !form.input) {
+    if (
+      (selectedToolId !== "compressPdf" && selectedToolId !== "splitPdf") ||
+      !form.input
+    ) {
       setSourceFileSize(null);
       return;
     }
@@ -401,6 +414,7 @@ export function App() {
     setPreviewError(null);
     setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
     setZoomState(null);
+    setSplitGroups([...DEFAULT_SPLIT_GROUPS]);
   }
 
   async function openPageZoom(input: string, pageNumber: number, title: string, rotateDegrees = 0) {
@@ -485,12 +499,45 @@ export function App() {
   function startOver() {
     setForm(initialForm(selectedTool));
     invalidateToolJobs(selectedToolId);
+    setSplitGroups([...DEFAULT_SPLIT_GROUPS]);
     setOrganizeItems([]);
     setPdfPreview(null);
     setPreviewError(null);
     setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
     setMergePreviews({});
     setSourceFileSize(null);
+  }
+
+  function resetSplitConfiguration() {
+    setSplitGroups([...DEFAULT_SPLIT_GROUPS]);
+    setForm((current) => ({
+      ...current,
+      outputPattern: toolById.splitPdf.defaults.outputPattern,
+    }));
+  }
+
+  async function saveSplitRow(job: JobState, output: string) {
+    const saved = await saveFileOutput(output, {
+      title: `Save As ${basename(output)}`,
+      defaultName: basename(output),
+      filters: outputFilters("splitPdf"),
+    });
+    if (saved) markSaved(job.id, saved, "splitPdf");
+  }
+
+  async function saveSplitAllOutputs(job: JobState) {
+    if (!job.result) return;
+    const stem = basename(form.input).replace(/\.pdf$/i, "") || "split";
+    const saved = packageZip
+      ? await saveZipOutputs(job.result.outputs, {
+          title: "Save split bundle",
+          zipName: `${stem}-split.zip`,
+        })
+      : await saveMultiOutputs(job.result.outputs, {
+          title: "Save split outputs",
+          baseName: stem,
+        });
+    if (saved) markSaved(job.id, saved, "splitPdf");
   }
 
   function removeCommandFile(path: string) {
@@ -658,19 +705,10 @@ export function App() {
   const splitPlan = useMemo(
     () =>
       selectedToolId === "splitPdf"
-        ? parseSplitPlan(form.ranges, pdfPreview?.pageCount ?? 0)
+        ? parseSplitPlan(splitGroups.join(", "), pdfPreview?.pageCount ?? 0)
         : null,
-    [selectedToolId, form.ranges, pdfPreview?.pageCount],
+    [selectedToolId, splitGroups, pdfPreview?.pageCount],
   );
-  const splitGroups = splitPlan?.groups ?? null;
-  const splitPageGroups = useMemo(() => {
-    const pageToGroup = new Map<number, number>();
-    splitPlan?.groups.forEach((group, index) => {
-      group.pages.forEach((page) => pageToGroup.set(page, index + 1));
-    });
-    return pageToGroup;
-  }, [splitPlan]);
-
   const canRun = !disabledReason && selectedFiles.length > 0;
   const canRunSelectedTool =
     selectedToolId === "organizePdf"
@@ -683,6 +721,24 @@ export function App() {
   const restorableRecentFiles = canReopenRecentFiles() ? recentFiles : [];
   const activeJob = jobs.find((job) => job.tool === selectedToolId) ?? null;
   const hasOutput = Boolean(activeJob?.status === "complete" && activeJob.result);
+
+  useEffect(() => {
+    if (activeView !== "splitPdf") return;
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === "enter" && canRunSelectedTool) {
+        event.preventDefault();
+        void runSelectedJob();
+      } else if (key === "o") {
+        event.preventDefault();
+        void pickFiles();
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [activeView, canRunSelectedTool, form, splitGroups]);
+
 
   return (
     <main className={`app-shell ${isNativeSidebarCollapsed ? "native-sidebar-collapsed" : ""}`}>
@@ -775,8 +831,16 @@ export function App() {
         </div>
       </section>
 
-      <section className={isHomeView ? "workspace workspace-home" : "workspace"}>
-        {isHomeView ? (
+      <section
+        className={
+          isHomeView
+            ? "workspace workspace-home"
+            : selectedToolId === "splitPdf" && activeView === "splitPdf"
+              ? "workspace workspace-split"
+              : "workspace"
+        }
+      >
+        {isHomeView || (selectedToolId === "splitPdf" && activeView === "splitPdf") ? (
           <div aria-hidden="true" className="home-orb-layer">
             <div className="home-orb home-orb-a" />
             <div className="home-orb home-orb-b" />
@@ -788,6 +852,12 @@ export function App() {
         {!isHomeView ? (
           <header className="topbar">
             <div data-tauri-drag-region>
+              {selectedToolId === "splitPdf" && activeView === "splitPdf" ? (
+                <p className="breadcrumb">
+                  <span className="breadcrumb-dot" />
+                  DOCUMENT STUDIO / EXTRACT &amp; SEGMENT
+                </p>
+              ) : null}
               <h2>
                 {activeView === "history"
                   ? "History"
@@ -803,9 +873,18 @@ export function App() {
                     : selectedTool.description}
               </p>
             </div>
-            <button className="icon-button" onClick={refreshRuntime} type="button" title="Refresh">
-              <RefreshCw size={18} />
-            </button>
+            {selectedToolId === "splitPdf" && activeView === "splitPdf" && hasSelectedFiles ? (
+              <SplitFileChip
+                file={form.input}
+                fileSize={sourceFileSize}
+                pageCount={pdfPreview?.pageCount ?? null}
+                onReplace={pickFiles}
+              />
+            ) : (
+              <button className="icon-button" onClick={refreshRuntime} type="button" title="Refresh">
+                <RefreshCw size={18} />
+              </button>
+            )}
           </header>
         ) : null}
 
@@ -836,13 +915,38 @@ export function App() {
             onCheckForUpdates={async () => setUpdateState(await checkForUpdates())}
             onInstallUpdate={async () => setUpdateState(await installPendingUpdate())}
           />
+        ) : selectedToolId === "splitPdf" ? (
+          <SplitStudio
+            canRun={canRunSelectedTool}
+            dragging={isDraggingFiles}
+            form={form}
+            groups={splitGroups}
+            hasFile={hasSelectedFiles}
+            packageZip={packageZip}
+            pageCount={pdfPreview?.pageCount ?? null}
+            plan={splitPlan}
+            preview={pdfPreview}
+            previewError={previewError}
+            previewLoading={isPreviewLoading}
+            recentFiles={restorableRecentFiles}
+            running={activeJob?.status === "running"}
+            visibleCount={previewVisibleCount}
+            onGroupsChange={setSplitGroups}
+            onPackageZipChange={setPackageZip}
+            onPickFiles={pickFiles}
+            onPatternChange={(pattern) => setForm((current) => ({ ...current, outputPattern: pattern }))}
+            onReset={resetSplitConfiguration}
+            onRun={() => void runSelectedJob()}
+            onSelectRecent={(path) => applySelectedFiles([path])}
+            onShowAllPreview={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
+            onShowMorePreview={() =>
+              setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
+            }
+            onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
+          />
         ) : (
           <div className="workbench" style={{ "--tool-accent": selectedTool.accent } as CSSProperties}>
-            <section
-              className={`${hasSelectedFiles ? "preview-stage" : "empty-stage"}${
-                selectedToolId === "splitPdf" && hasSelectedFiles ? " split-stage" : ""
-              }`}
-            >
+            <section className={hasSelectedFiles ? "preview-stage" : "empty-stage"}>
               {!hasSelectedFiles ? (
                 <>
                   <FileDropZone
@@ -895,22 +999,6 @@ export function App() {
                   onRemove={removeFile}
                   onZoomFile={(path) => void openPageZoom(path, 1, basename(path))}
                 />
-              ) : selectedToolId === "splitPdf" ? (
-                <>
-                  <SplitGroupsBoard groups={splitGroups} preview={pdfPreview} />
-                  <PdfPreviewGrid
-                    preview={pdfPreview}
-                    isLoading={isPreviewLoading}
-                    error={previewError}
-                    visibleCount={previewVisibleCount}
-                    groupByPage={splitPageGroups}
-                    onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
-                    onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
-                    onShowMore={() =>
-                      setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
-                    }
-                  />
-                </>
               ) : isPdfPreviewTool(selectedToolId) ? (
                 <PdfPreviewGrid
                   preview={pdfPreview}
@@ -967,16 +1055,6 @@ export function App() {
 
                   <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
 
-                  {selectedToolId === "splitPdf" && form.input ? (
-                    splitPlan?.trimmed ? (
-                      <p className="field-hint">
-                        Ranges past page {pdfPreview?.pageCount ?? "?"} were ignored.
-                      </p>
-                    ) : !splitPlan && form.ranges.trim() ? (
-                      <p className="field-hint">No pages match these ranges.</p>
-                    ) : null
-                  ) : null}
-
                   {selectedToolId === "compressPdf" && form.input ? (
                     <p className="source-size-note">
                       <strong>{sourceFileSize ? formatBytes(sourceFileSize) : "—"}</strong>
@@ -996,6 +1074,20 @@ export function App() {
           </div>
         )}
       </section>
+      {activeJob &&
+      activeJob.tool === "splitPdf" &&
+      activeJob.status === "complete" &&
+      activeJob.result ? (
+        <SplitOutputModal
+          job={activeJob}
+          packageZip={packageZip}
+          plan={splitPlan}
+          onClose={() => invalidateToolJobs("splitPdf")}
+          onPreview={(output) => void openPageZoom(output, 1, basename(output))}
+          onSaveAll={() => void saveSplitAllOutputs(activeJob)}
+          onSaveRow={(output) => void saveSplitRow(activeJob, output)}
+        />
+      ) : null}
       {zoomState ? <PageZoomModal zoom={zoomState} onClose={() => setZoomState(null)} /> : null}
     </main>
   );
@@ -1230,6 +1322,574 @@ function HomeView({
   );
 }
 
+function groupPageCount(group: string, pageCount: number): number | null {
+  const plan = parseSplitPlan(group, pageCount);
+  if (!plan) return null;
+  return plan.groups.reduce((total, item) => total + item.pages.length, 0);
+}
+
+function SplitStudio({
+  canRun,
+  dragging,
+  form,
+  groups,
+  hasFile,
+  packageZip,
+  pageCount,
+  plan,
+  preview,
+  previewError,
+  previewLoading,
+  recentFiles,
+  running,
+  visibleCount,
+  onGroupsChange,
+  onPackageZipChange,
+  onPickFiles,
+  onPatternChange,
+  onReset,
+  onRun,
+  onSelectRecent,
+  onShowAllPreview,
+  onShowMorePreview,
+  onZoomPage,
+}: {
+  canRun: boolean;
+  dragging: boolean;
+  form: FormState;
+  groups: string[];
+  hasFile: boolean;
+  packageZip: boolean;
+  pageCount: number | null;
+  plan: SplitPlan | null;
+  preview: PdfPreview | null;
+  previewError: string | null;
+  previewLoading: boolean;
+  recentFiles: string[];
+  running: boolean;
+  visibleCount: number;
+  onGroupsChange: (groups: string[]) => void;
+  onPackageZipChange: (value: boolean) => void;
+  onPickFiles: () => void;
+  onPatternChange: (value: string) => void;
+  onReset: () => void;
+  onRun: () => void;
+  onSelectRecent: (path: string) => void;
+  onShowAllPreview: () => void;
+  onShowMorePreview: () => void;
+  onZoomPage: (page: number) => void;
+}) {
+  return (
+    <div className={`split-studio ${hasFile || recentFiles.length > 0 ? "" : "split-studio-solo"}`}>
+      <div className="split-studio-main">
+        {hasFile ? (
+          <>
+            <SplitGroupsCard
+              groups={groups}
+              pageCount={pageCount}
+              plan={plan}
+              onGroupsChange={onGroupsChange}
+            />
+            <section className="studio-card split-preview-card">
+              <PdfPreviewGrid
+                error={previewError}
+                isLoading={previewLoading}
+                onShowAll={onShowAllPreview}
+                onShowMore={onShowMorePreview}
+                onZoomPage={onZoomPage}
+                preview={preview}
+                visibleCount={visibleCount}
+              />
+            </section>
+          </>
+        ) : (
+          <>
+            <SplitDropCard dragging={dragging} onPickFiles={onPickFiles} />
+            <SplitInfoCards />
+          </>
+        )}
+      </div>
+      <aside className="split-studio-aside">
+        {hasFile ? (
+          <>
+            <SplitOutputSettings
+              canRun={canRun}
+              packageZip={packageZip}
+              pageCount={pageCount}
+              pattern={form.outputPattern}
+              plan={plan}
+              running={running}
+              onPackageZipChange={onPackageZipChange}
+              onPatternChange={onPatternChange}
+              onReset={onReset}
+              onRun={onRun}
+            />
+            <SplitTipCard />
+          </>
+        ) : recentFiles.length > 0 ? (
+          <SplitRecentPanel files={recentFiles} onSelect={onSelectRecent} />
+        ) : null}
+      </aside>
+    </div>
+  );
+}
+
+function SplitDropCard({
+  dragging,
+  onPickFiles,
+}: {
+  dragging: boolean;
+  onPickFiles: () => void;
+}) {
+  return (
+    <section className={`studio-card split-drop-card ${dragging ? "dragging" : ""}`}>
+      <div className="split-drop-body">
+        <span className="split-drop-icon">
+          <ListOrdered size={22} strokeWidth={1.7} />
+          <em>+</em>
+        </span>
+        <h2>Drop your PDF here</h2>
+        <p>
+          Select a PDF document from your workstation to configure segments,
+          single-page splits, or customized range sequences.
+        </p>
+        <button className="split-drop-cta" onClick={onPickFiles} type="button">
+          <FilePlus2 size={15} />
+          Choose File
+          <kbd>&#8984;O</kbd>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+const SPLIT_STEPS: Array<[string, string, string]> = [
+  [
+    "01",
+    "Target Ranges",
+    "Define discrete brackets such as 1-4, 5-8, or standalone single pages to generate isolated volumes.",
+  ],
+  [
+    "02",
+    "Visual Page Grid",
+    "Inspect every page below, zoom thumbnails, and verify boundaries before you commit the split.",
+  ],
+  [
+    "03",
+    "One-Click Export",
+    "Receive a structured .zip bundle with intelligent naming, or save each document individually.",
+  ],
+];
+
+function SplitInfoCards() {
+  return (
+    <section className="split-info-cards">
+      {SPLIT_STEPS.map(([number, title, copy]) => (
+        <div className="split-info-card" key={number}>
+          <span className="split-info-number">{number}</span>
+          <div>
+            <strong>{title}</strong>
+            <p>{copy}</p>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function SplitGroupsCard({
+  groups,
+  pageCount,
+  plan,
+  onGroupsChange,
+}: {
+  groups: string[];
+  pageCount: number | null;
+  plan: SplitPlan | null;
+  onGroupsChange: (groups: string[]) => void;
+}) {
+  const resolvedPageCount = pageCount ?? 0;
+  const rowCounts = groups.map((group) => groupPageCount(group, resolvedPageCount));
+
+  return (
+    <section className="studio-card">
+      <div className="studio-card-heading">
+        <h3>
+          <ListOrdered size={16} />
+          Split Groups
+        </h3>
+        <span>
+          {plan
+            ? `${plan.groups.length} partition${plan.groups.length === 1 ? "" : "s"}`
+            : "define ranges"}
+        </span>
+      </div>
+      <div className="split-group-rows">
+        {groups.map((group, index) => {
+          const count = rowCounts[index];
+          const invalid = group.trim().length > 0 && count === null;
+          return (
+            <div className={`split-group-row ${invalid ? "invalid" : ""}`} key={index}>
+              <span className="split-group-index">{index + 1}</span>
+              <input
+                aria-label={`Split group ${index + 1}`}
+                className="split-group-input"
+                onChange={(event) =>
+                  onGroupsChange(
+                    groups.map((value, position) =>
+                      position === index ? event.target.value : value,
+                    ),
+                  )
+                }
+                placeholder="1-3, 5, 7-10"
+                value={group}
+              />
+              <span className="split-group-count">
+                {count === null ? "—" : `${count} page${count === 1 ? "" : "s"}`}
+              </span>
+              <button
+                className="split-group-remove"
+                onClick={() =>
+                  onGroupsChange(
+                    groups.length === 1
+                      ? [""]
+                      : groups.filter((_, position) => position !== index),
+                  )
+                }
+                title="Remove group"
+                type="button"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <button
+        className="split-group-add"
+        onClick={() => onGroupsChange([...groups, ""])}
+        type="button"
+      >
+        <Plus size={15} />
+        Add Split Group
+      </button>
+      {plan?.trimmed ? (
+        <p className="field-hint">Ranges past page {pageCount ?? "?"} were ignored.</p>
+      ) : !plan && groups.some((group) => group.trim()) ? (
+        <p className="field-hint">No pages match these ranges.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function SplitOutputSettings({
+  canRun,
+  packageZip,
+  pageCount,
+  pattern,
+  plan,
+  running,
+  onPackageZipChange,
+  onPatternChange,
+  onReset,
+  onRun,
+}: {
+  canRun: boolean;
+  packageZip: boolean;
+  pageCount: number | null;
+  pattern: string;
+  plan: SplitPlan | null;
+  running: boolean;
+  onPackageZipChange: (value: boolean) => void;
+  onPatternChange: (value: string) => void;
+  onReset: () => void;
+  onRun: () => void;
+}) {
+  const files = plan?.groups.length ?? 0;
+  const covered = plan
+    ? plan.groups.reduce((total, group) => total + group.pages.length, 0)
+    : 0;
+
+  return (
+    <section className="studio-card">
+      <div className="studio-card-heading">
+        <h3>
+          <SlidersHorizontal size={16} />
+          Output Settings
+        </h3>
+      </div>
+      <label className="split-setting-field">
+        <span>File Naming Format</span>
+        <input onChange={(event) => onPatternChange(event.target.value)} value={pattern} />
+      </label>
+      <p className="split-setting-hint">
+        Variables: <code>{"{filename}"}</code>, <code>{"{n}"}</code>,{" "}
+        <code>{"{range}"}</code>
+      </p>
+      <label className="split-zip-row">
+        <span>
+          <strong>Package into ZIP archive</strong>
+          <small>Bundle all split documents together</small>
+        </span>
+        <input
+          checked={packageZip}
+          onChange={(event) => onPackageZipChange(event.target.checked)}
+          type="checkbox"
+        />
+      </label>
+      <div className="split-summary">
+        <div>
+          <span>Total Resulting Files</span>
+          <strong>
+            {files} PDF{files === 1 ? "" : "s"}
+          </strong>
+        </div>
+        <div>
+          <span>Total Pages Covered</span>
+          <strong>
+            {covered} of {pageCount ?? "?"} pages
+          </strong>
+        </div>
+        <div>
+          <span>Estimated Download</span>
+          <strong>—</strong>
+        </div>
+      </div>
+      <button className="split-run-pill" disabled={!canRun || running} onClick={onRun} type="button">
+        {running ? <Loader2 className="spin" size={15} /> : <ListOrdered size={15} />}
+        <span>
+          {running
+            ? "Splitting…"
+            : files > 0
+              ? `Split PDF into ${files} File${files === 1 ? "" : "s"}`
+              : "Split PDF"}
+        </span>
+        <kbd>&#8984;&#8629;</kbd>
+      </button>
+      <button className="split-reset-button" onClick={onReset} type="button">
+        Reset Configuration
+      </button>
+    </section>
+  );
+}
+
+function SplitTipCard() {
+  return (
+    <section className="studio-card split-tip-card">
+      <Lightbulb size={16} />
+      <p>
+        Quickly split by entering comma-separated numbers or hyphenated spans like{" "}
+        <code>1-3, 5, 7-10</code> in any group.
+      </p>
+    </section>
+  );
+}
+
+function SplitFileChip({
+  file,
+  fileSize,
+  pageCount,
+  onReplace,
+}: {
+  file: string;
+  fileSize: number | null;
+  pageCount: number | null;
+  onReplace: () => void;
+}) {
+  return (
+    <div className="split-file-chip">
+      <span className="split-file-chip-icon">
+        <FileText size={16} />
+      </span>
+      <div className="split-file-chip-meta">
+        <strong>{basename(file)}</strong>
+        <small>
+          {pageCount
+            ? `${pageCount} ${pageCount === 1 ? "Page" : "Pages"}`
+            : "Reading…"}
+          {fileSize ? ` · ${formatBytes(fileSize)}` : ""}
+        </small>
+      </div>
+      <button className="split-chip-replace" onClick={onReplace} type="button">
+        <ArrowLeftRight size={13} />
+        Replace
+      </button>
+    </div>
+  );
+}
+
+function SplitRecentPanel({
+  files,
+  onSelect,
+}: {
+  files: string[];
+  onSelect: (path: string) => void;
+}) {
+  const [sizes, setSizes] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let isCancelled = false;
+    for (const file of files) {
+      void invokeCommand<number>("get_file_size", { path: file })
+        .then((size) => {
+          if (!isCancelled) {
+            setSizes((current) => ({ ...current, [file]: size }));
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isCancelled = true;
+    };
+  }, [files.join("|")]);
+
+  return (
+    <section className="studio-card split-recent-panel">
+      <div className="studio-card-heading">
+        <h3>
+          <Clock3 size={15} />
+          Recent Documents
+        </h3>
+        <span>Workspace cache</span>
+      </div>
+      <div className="split-recent-list">
+        {files.slice(0, 4).map((path) => (
+          <div className="split-recent-row" key={path}>
+            <span className="split-recent-icon">
+              <FileText size={15} />
+            </span>
+            <div className="split-recent-meta">
+              <strong>{basename(path)}</strong>
+              <small>{sizes[path] ? formatBytes(sizes[path]) : "…"}</small>
+            </div>
+            <button className="split-recent-select" onClick={() => onSelect(path)} type="button">
+              Select
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SplitOutputModal({
+  job,
+  packageZip,
+  plan,
+  onClose,
+  onPreview,
+  onSaveAll,
+  onSaveRow,
+}: {
+  job: JobState;
+  packageZip: boolean;
+  plan: SplitPlan | null;
+  onClose: () => void;
+  onPreview: (output: string) => void;
+  onSaveAll: () => void;
+  onSaveRow: (output: string) => void;
+}) {
+  const result = job.result;
+  const [sizes, setSizes] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!result) return;
+    let isCancelled = false;
+    for (const output of result.outputs) {
+      void invokeCommand<number>("get_file_size", { path: output })
+        .then((size) => {
+          if (!isCancelled) {
+            setSizes((current) => ({ ...current, [output]: size }));
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isCancelled = true;
+    };
+  }, [result?.outputs.join("|")]);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  if (!result) return null;
+
+  const count = result.outputs.length;
+  const total = result.outputBytes ? formatBytes(result.outputBytes) : "—";
+
+  return (
+    <div className="split-modal-overlay" onClick={onClose} role="presentation">
+      <div className="split-modal" onClick={(event) => event.stopPropagation()} role="dialog">
+        <button className="split-modal-close" onClick={onClose} title="Close" type="button">
+          <X size={15} />
+        </button>
+        <div className="split-modal-heading">
+          <span className="split-modal-check">
+            <CheckCircle2 size={22} />
+          </span>
+          <div>
+            <em>Split complete</em>
+            <h2>
+              {count === 1 ? "1 File Ready for Export" : `${count} Files Ready for Export`}
+            </h2>
+            <p>
+              Your documents have been separated into {count}{" "}
+              {count === 1 ? "constituent file" : "constituent files"} with page fidelity
+              preserved.
+            </p>
+          </div>
+        </div>
+        <div className="split-modal-list-heading">
+          <span>Generated documents</span>
+          <span>Total: {total}</span>
+        </div>
+        <div className="split-modal-list">
+          {result.outputs.map((output, index) => (
+            <div className="split-modal-row" key={output}>
+              <span className="split-modal-row-icon">
+                <FileText size={16} />
+              </span>
+              <div className="split-modal-row-meta">
+                <strong>{basename(output)}</strong>
+                <small>
+                  {plan?.groups[index] ? `${plan.groups[index].label} · ` : ""}
+                  {sizes[output] ? formatBytes(sizes[output]) : "…"}
+                </small>
+              </div>
+              <button className="split-modal-preview" onClick={() => onPreview(output)} type="button">
+                <Eye size={14} />
+                Preview
+              </button>
+              <button
+                className="split-modal-download"
+                onClick={() => onSaveRow(output)}
+                title="Save"
+                type="button"
+              >
+                <Download size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="split-modal-actions">
+          <button className="split-modal-primary" onClick={onSaveAll} type="button">
+            <Download size={15} />
+            {packageZip ? `Download All (ZIP • ${total})` : "Download All"}
+          </button>
+          <button className="split-modal-done" onClick={onClose} type="button">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FileDropZone({
   dragging,
   multiple,
@@ -1442,24 +2102,6 @@ function OperationFields({
 }) {
   return (
     <section className="side-section">
-      {selectedToolId === "splitPdf" ? (
-        <>
-          <Field label="Ranges">
-            <input
-              value={form.ranges}
-              onChange={(event) => onChange({ ...form, ranges: event.target.value })}
-              placeholder="1, 3-5, 8"
-            />
-          </Field>
-          <Field label="Output pattern">
-            <input
-              value={form.outputPattern}
-              onChange={(event) => onChange({ ...form, outputPattern: event.target.value })}
-            />
-          </Field>
-        </>
-      ) : null}
-
       {selectedToolId === "compressPdf" ? (
         <Field label="Compression profile">
           <select
@@ -1891,72 +2533,6 @@ function MergeBoard({
             </div>
           </article>
         ))}
-      </div>
-    </section>
-  );
-}
-
-function SplitGroupsBoard({
-  groups,
-  preview,
-}: {
-  groups: SplitGroup[] | null;
-  preview: PdfPreview | null;
-}) {
-  if (!preview || !groups) return null;
-  const pageThumbnails = new Map(
-    preview.pages.map((page) => [page.pageNumber, page.dataUrl] as const),
-  );
-
-  return (
-    <section className="split-groups-board">
-      <div className="preview-heading">
-        <strong>Split groups</strong>
-        <span>
-          {groups.length === 1 ? "1 output file" : `${groups.length} output files`} from the
-          ranges above
-        </span>
-      </div>
-      <div className="split-groups-grid">
-        {groups.map((group, index) => {
-          const visiblePages = group.pages.slice(0, 8);
-          return (
-            <article
-              className={`split-group-card hue-${GROUP_HUES[index % GROUP_HUES.length]}`}
-              key={`${group.label}-${index}`}
-            >
-              <header>
-                <span className="split-group-number">{index + 1}</span>
-                <div>
-                  <strong>{group.label}</strong>
-                  <small>
-                    {group.pages.length} {group.pages.length === 1 ? "page" : "pages"}
-                  </small>
-                </div>
-              </header>
-              <div className="split-group-pages">
-                {visiblePages.map((page) => {
-                  const thumbnail = pageThumbnails.get(page);
-                  return (
-                    <figure key={page}>
-                      {thumbnail ? (
-                        <img alt={`Page ${page}`} draggable={false} src={thumbnail} />
-                      ) : (
-                        <span className="split-page-fallback">{page}</span>
-                      )}
-                      <figcaption>{page}</figcaption>
-                    </figure>
-                  );
-                })}
-                {group.pages.length > visiblePages.length ? (
-                  <span className="split-group-more">
-                    +{group.pages.length - visiblePages.length}
-                  </span>
-                ) : null}
-              </div>
-            </article>
-          );
-        })}
       </div>
     </section>
   );

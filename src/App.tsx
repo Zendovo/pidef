@@ -33,6 +33,7 @@ import {
   subscribeToFileDrop,
 } from "./platform";
 import { invokeCommand, isTauriRuntime } from "./runtime";
+import { hasRegisteredFile } from "./web/registry";
 import { toolById, tools, type ToolDefinition, type ToolId } from "./tools";
 import type { DependencySet, JobResult, JobState, OperationOptions, PdfPreview } from "./types";
 import { checkForUpdates, installPendingUpdate, type UpdateState } from "./updater";
@@ -718,7 +719,9 @@ export function App() {
         : canRun;
   const isSettingsView = activeView === "settings";
   const isHomeView = activeView === "home";
-  const restorableRecentFiles = canReopenRecentFiles() ? recentFiles : [];
+  const restorableRecentFiles = canReopenRecentFiles()
+    ? recentFiles
+    : recentFiles.filter(hasRegisteredFile);
   const activeJob = jobs.find((job) => job.tool === selectedToolId) ?? null;
   const hasOutput = Boolean(activeJob?.status === "complete" && activeJob.result);
 
@@ -850,12 +853,20 @@ export function App() {
           </div>
         ) : null}
         {!isHomeView ? (
-          <header className="topbar">
+          <header
+            className={`topbar${
+              selectedToolId === "splitPdf" && activeView === "splitPdf"
+                ? hasSelectedFiles
+                  ? " split-topbar-loaded"
+                  : " split-topbar-empty"
+                : ""
+            }`}
+          >
             <div data-tauri-drag-region>
               {selectedToolId === "splitPdf" && activeView === "splitPdf" ? (
                 <p className="breadcrumb">
                   <span className="breadcrumb-dot" />
-                  DOCUMENT STUDIO / EXTRACT &amp; SEGMENT
+                  DOCUMENT STUDIO / SPLIT
                 </p>
               ) : null}
               <h2>
@@ -1403,33 +1414,37 @@ function SplitStudio({
             </section>
           </>
         ) : (
-          <>
-            <SplitDropCard dragging={dragging} onPickFiles={onPickFiles} />
-            <SplitInfoCards />
-          </>
+          <SplitDropCard dragging={dragging} onPickFiles={onPickFiles} />
         )}
       </div>
-      <aside className="split-studio-aside">
-        {hasFile ? (
-          <>
-            <SplitOutputSettings
-              canRun={canRun}
-              packageZip={packageZip}
-              pageCount={pageCount}
-              pattern={form.outputPattern}
-              plan={plan}
-              running={running}
-              onPackageZipChange={onPackageZipChange}
-              onPatternChange={onPatternChange}
-              onReset={onReset}
-              onRun={onRun}
-            />
-            <SplitTipCard />
-          </>
-        ) : recentFiles.length > 0 ? (
-          <SplitRecentPanel files={recentFiles} onSelect={onSelectRecent} />
-        ) : null}
-      </aside>
+      {hasFile || recentFiles.length > 0 ? (
+        <aside className="split-studio-aside">
+          {hasFile ? (
+            <>
+              <SplitOutputSettings
+                canRun={canRun}
+                packageZip={packageZip}
+                pageCount={pageCount}
+                pattern={form.outputPattern}
+                plan={plan}
+                running={running}
+                onPackageZipChange={onPackageZipChange}
+                onPatternChange={onPatternChange}
+                onReset={onReset}
+                onRun={onRun}
+              />
+              <SplitTipCard />
+            </>
+          ) : (
+            <SplitRecentPanel files={recentFiles} onSelect={onSelectRecent} />
+          )}
+        </aside>
+      ) : null}
+      {!hasFile ? (
+        <div className="split-studio-full">
+          <SplitInfoCards />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1750,10 +1765,9 @@ function SplitRecentPanel({
           <Clock3 size={15} />
           Recent Documents
         </h3>
-        <span>Workspace cache</span>
       </div>
       <div className="split-recent-list">
-        {files.slice(0, 4).map((path) => (
+        {files.slice(0, 3).map((path) => (
           <div className="split-recent-row" key={path}>
             <span className="split-recent-icon">
               <FileText size={15} />

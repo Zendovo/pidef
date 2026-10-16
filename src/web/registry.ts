@@ -31,3 +31,7 @@ export function getFileBytes(path: string): Uint8Array | undefined {
 export function getFileSize(path: string): number | undefined {
   return files.get(path)?.bytes.byteLength;
 }
+
+export function hasRegisteredFile(path: string): boolean {
+  return files.has(path);
+}

@@ -6,6 +6,7 @@ const nodeStub = fileURLToPath(new URL("./src/web/node-stub.ts", import.meta.url
 const isTauriBuild = Boolean(process.env.TAURI_ENV_PLATFORM);
 
 export default defineConfig({
+  base: process.env.VITE_BASE ?? "/",
   plugins: [react()],
   clearScreen: false,
   server: {

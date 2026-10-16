@@ -88,19 +88,23 @@ console.log("4. saved via download:", download.suggestedFilename());
 await page.getByRole("button", { name: "Start over" }).click();
 await page.getByRole("button", { name: "Compress PDF", exact: true }).click();
 const chooserPromise2 = page.waitForEvent("filechooser");
-await page.getByText("Drop a file here or choose a file").click();
+await page.getByRole("button", { name: /Choose File/ }).click();
 await (await chooserPromise2).setFiles([join(temp, "a.pdf")]);
-await page.getByRole("button", { name: "Compress PDF", exact: true }).last().click();
+await page.locator(".split-run-pill").waitFor({ timeout: 30_000 });
+await page.locator(".split-run-pill").click();
 await page.getByText("Compress PDF complete").waitFor({ timeout: 60_000 });
-console.log("5. compress complete:", await page.locator(".output-heading small").innerText());
+console.log("5. compress complete:", await page.locator(".split-modal-heading p").innerText());
+await page.getByRole("button", { name: "Done" }).click();
 
 await page.getByRole("button", { name: "Split PDF", exact: true }).click();
 const chooserPromise3 = page.waitForEvent("filechooser");
 await page.getByRole("button", { name: /Choose File/ }).click();
 await (await chooserPromise3).setFiles([join(temp, "a.pdf")]);
 await page.locator(".split-group-input").first().waitFor({ timeout: 30_000 });
+await page.locator(".split-group-add").click();
+await page.locator(".split-group-input").nth(1).fill("1");
 await page.getByRole("button", { name: /Split PDF into/ }).click();
-await page.getByText("File Ready for Export").waitFor({ timeout: 60_000 });
+await page.getByText("Ready for Export").waitFor({ timeout: 60_000 });
 console.log("6. split complete:", await page.locator(".split-modal-row-meta strong").first().innerText());
 
 const zipDownloadPromise = page.waitForEvent("download", { timeout: 30_000 });

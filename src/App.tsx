@@ -102,6 +102,15 @@ const HISTORY_KEY = "pidef.history";
 const DEFAULT_VISIBLE_PAGES = 20;
 const SHOW_ALL_PREVIEW_LIMIT = 65_535;
 const DEFAULT_SPLIT_GROUPS = ["1-2"];
+const STUDIO_TOOLS: ToolId[] = [
+  "splitPdf",
+  "organizePdf",
+  "compressPdf",
+  "pdfToJpg",
+  "unlockPdf",
+  "protectPdf",
+];
+const isStudioTool = (tool: ToolId) => STUDIO_TOOLS.includes(tool);
 
 export function App() {
   const [selectedToolId, setSelectedToolId] = useState<ToolId>("mergePdf");
@@ -269,10 +278,7 @@ export function App() {
   }, [selectedToolId, form.inputs.join("|")]);
 
   useEffect(() => {
-    if (
-      (selectedToolId !== "compressPdf" && selectedToolId !== "splitPdf") ||
-      !form.input
-    ) {
+    if (!isStudioTool(selectedToolId) || !form.input) {
       setSourceFileSize(null);
       return;
     }
@@ -519,28 +525,38 @@ export function App() {
     }));
   }
 
-  async function saveSplitRow(job: JobState, output: string) {
+  async function saveStudioRow(job: JobState, output: string) {
     const saved = await saveFileOutput(output, {
       title: `Save As ${basename(output)}`,
-      defaultName: basename(output),
-      filters: outputFilters("splitPdf"),
+      defaultName: suggestedOutputName(job.tool, output),
+      filters: outputFilters(job.tool),
     });
-    if (saved) markSaved(job.id, saved, "splitPdf");
+    if (saved) markSaved(job.id, saved, job.tool);
   }
 
-  async function saveSplitAllOutputs(job: JobState) {
+  async function saveStudioAll(job: JobState) {
     if (!job.result) return;
-    const stem = basename(form.input).replace(/\.pdf$/i, "") || "split";
-    const saved = packageZip
-      ? await saveZipOutputs(job.result.outputs, {
-          title: "Save split bundle",
-          zipName: `${stem}-split.zip`,
-        })
-      : await saveMultiOutputs(job.result.outputs, {
-          title: "Save split outputs",
-          baseName: stem,
-        });
-    if (saved) markSaved(job.id, saved, "splitPdf");
+    const outputs = job.result.outputs;
+    const stem = basename(form.input).replace(/\.[^.]+$/, "") || "pidef";
+    let saved: string | null = null;
+    if (outputs.length === 1) {
+      saved = await saveFileOutput(outputs[0], {
+        title: `Save As ${job.title}`,
+        defaultName: suggestedOutputName(job.tool, outputs[0]),
+        filters: outputFilters(job.tool),
+      });
+    } else if (packageZip && (job.tool === "splitPdf" || job.tool === "pdfToJpg")) {
+      saved = await saveZipOutputs(outputs, {
+        title: "Save bundle",
+        zipName: `${stem}-${job.tool === "pdfToJpg" ? "images" : "parts"}.zip`,
+      });
+    } else {
+      saved = await saveMultiOutputs(outputs, {
+        title: "Save outputs",
+        baseName: stem,
+      });
+    }
+    if (saved) markSaved(job.id, saved, job.tool);
   }
 
   function removeCommandFile(path: string) {
@@ -726,9 +742,257 @@ export function App() {
     : recentFiles.filter(hasRegisteredFile);
   const activeJob = jobs.find((job) => job.tool === selectedToolId) ?? null;
   const hasOutput = Boolean(activeJob?.status === "complete" && activeJob.result);
+  const isStudioView = isStudioTool(selectedToolId);
+  const studioRunLabel = (() => {
+    if (selectedToolId === "splitPdf") {
+      const count = splitPlan?.groups.length ?? 0;
+      return count > 0 ? `Split PDF into ${count} File${count === 1 ? "" : "s"}` : "Split PDF";
+    }
+    return runActionLabel(selectedToolId);
+  })();
+  const studioSummary: Array<{ label: string; value: string }> = (() => {
+    switch (selectedToolId) {
+      case "organizePdf":
+        return [
+          {
+            label: "Pages in Output",
+            value: `${organizeItems.length} of ${pdfPreview?.pageCount ?? "?"} pages`,
+          },
+        ];
+      case "compressPdf":
+        return [
+          {
+            label: "Compression Preset",
+            value:
+              form.profile === "safe"
+                ? "Safe"
+                : form.profile === "balanced"
+                  ? "Balanced"
+                  : "Small",
+          },
+          {
+            label: "Current File Size",
+            value: sourceFileSize ? formatBytes(sourceFileSize) : "—",
+          },
+        ];
+      case "pdfToJpg":
+        return [
+          { label: "Pages to Export", value: `${pdfPreview?.pageCount ?? "?"}` },
+          { label: "Export DPI", value: `${form.dpi}` },
+        ];
+      case "unlockPdf":
+        return [{ label: "Output", value: "Decrypted copy" }];
+      case "protectPdf":
+        return [
+          { label: "Encryption", value: "AES-256" },
+          {
+            label: "Permissions",
+            value:
+              [
+                form.allowPrinting ? "print" : null,
+                form.allowCopying ? "copy" : null,
+                form.allowModification ? "edit" : null,
+              ]
+                .filter(Boolean)
+                .join(", ") || "no access",
+          },
+        ];
+      default: {
+        const files = splitPlan?.groups.length ?? 0;
+        const covered = splitPlan
+          ? splitPlan.groups.reduce((total, group) => total + group.pages.length, 0)
+          : 0;
+        return [
+          { label: "Total Resulting Files", value: `${files} PDF${files === 1 ? "" : "s"}` },
+          {
+            label: "Total Pages Covered",
+            value: `${covered} of ${pdfPreview?.pageCount ?? "?"} pages`,
+          },
+          { label: "Estimated Download", value: "—" },
+        ];
+      }
+    }
+  })();
+  const studioFields = (
+    <>
+      {selectedToolId === "compressPdf" ? (
+        <label className="split-setting-field">
+          <span>Compression Profile</span>
+          <select
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                profile: event.target.value as FormState["profile"],
+              }))
+            }
+            value={form.profile}
+          >
+            <option value="safe">Safe — lossless optimization</option>
+            <option value="balanced">Balanced — recommended</option>
+            <option value="small">Small — softest images</option>
+          </select>
+        </label>
+      ) : null}
+      {selectedToolId === "pdfToJpg" ? (
+        <div className="split-field-grid">
+          <label className="split-setting-field">
+            <span>DPI</span>
+            <input
+              max={600}
+              min={72}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, dpi: Number(event.target.value) }))
+              }
+              type="number"
+              value={form.dpi}
+            />
+          </label>
+          <label className="split-setting-field">
+            <span>JPG Quality</span>
+            <input
+              max={100}
+              min={1}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, quality: Number(event.target.value) }))
+              }
+              type="number"
+              value={form.quality}
+            />
+          </label>
+        </div>
+      ) : null}
+      {selectedToolId === "unlockPdf" ? (
+        <label className="split-setting-field">
+          <span>Password</span>
+          <input
+            onChange={(event) =>
+              setForm((current) => ({ ...current, password: event.target.value }))
+            }
+            type="password"
+            value={form.password}
+          />
+        </label>
+      ) : null}
+      {selectedToolId === "protectPdf" ? (
+        <>
+          <label className="split-setting-field">
+            <span>User Password</span>
+            <input
+              onChange={(event) =>
+                setForm((current) => ({ ...current, userPassword: event.target.value }))
+              }
+              type="password"
+              value={form.userPassword}
+            />
+          </label>
+          <label className="split-setting-field">
+            <span>Owner Password</span>
+            <input
+              onChange={(event) =>
+                setForm((current) => ({ ...current, ownerPassword: event.target.value }))
+              }
+              type="password"
+              value={form.ownerPassword}
+            />
+          </label>
+          <label className="split-zip-row">
+            <span>
+              <strong>Allow printing</strong>
+            </span>
+            <input
+              checked={form.allowPrinting}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, allowPrinting: event.target.checked }))
+              }
+              type="checkbox"
+            />
+          </label>
+          <label className="split-zip-row">
+            <span>
+              <strong>Allow copying</strong>
+            </span>
+            <input
+              checked={form.allowCopying}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, allowCopying: event.target.checked }))
+              }
+              type="checkbox"
+            />
+          </label>
+          <label className="split-zip-row">
+            <span>
+              <strong>Allow modification</strong>
+            </span>
+            <input
+              checked={form.allowModification}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, allowModification: event.target.checked }))
+              }
+              type="checkbox"
+            />
+          </label>
+        </>
+      ) : null}
+    </>
+  );
+  const studioMain = (
+    <>
+      {selectedToolId === "splitPdf" ? (
+        <SplitGroupsCard
+          groups={splitGroups}
+          pageCount={pdfPreview?.pageCount ?? null}
+          plan={splitPlan}
+          onGroupsChange={setSplitGroups}
+        />
+      ) : null}
+      {selectedToolId === "organizePdf" ? (
+        <section className="studio-card split-preview-card">
+          <OrganizeBoard
+            items={organizeItems}
+            isLoading={isPreviewLoading}
+            error={previewError}
+            draggedId={draggedOrganizeId}
+            pageCount={pdfPreview?.pageCount ?? 0}
+            visibleCount={previewVisibleCount}
+            onDelete={deleteOrganizeItem}
+            onDuplicate={duplicateOrganizeItem}
+            onDragEnd={() => setDraggedOrganizeId(null)}
+            onDragStart={setDraggedOrganizeId}
+            onMove={moveOrganizeItem}
+            onRotate={rotateOrganizeItem}
+            onZoomPage={(page, rotateDegrees) =>
+              void openPageZoom(form.input, page, selectedTool.title, rotateDegrees)
+            }
+            onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
+            onShowMore={() =>
+              setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
+            }
+          />
+        </section>
+      ) : null}
+    </>
+  );
+  const studioPreview =
+    selectedToolId === "organizePdf" ? null : (
+      <section className="studio-card split-preview-card">
+        <PdfPreviewGrid
+          error={previewError}
+          isLoading={isPreviewLoading}
+          onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
+          onShowMore={() =>
+            setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
+          }
+          onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
+          preview={pdfPreview}
+          title="Document Preview"
+          titleIcon={<BookOpen size={16} />}
+          visibleCount={previewVisibleCount}
+        />
+      </section>
+    );
 
   useEffect(() => {
-    if (activeView !== "splitPdf") return;
+    if (!isStudioTool(selectedToolId) || activeView !== selectedToolId) return;
     const handleShortcut = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
@@ -840,12 +1104,12 @@ export function App() {
         className={
           isHomeView
             ? "workspace workspace-home"
-            : selectedToolId === "splitPdf" && activeView === "splitPdf"
+            : isStudioView && activeView === selectedToolId
               ? "workspace workspace-split"
               : "workspace"
         }
       >
-        {isHomeView || (selectedToolId === "splitPdf" && activeView === "splitPdf") ? (
+        {isHomeView || (isStudioView && activeView === selectedToolId) ? (
           <div aria-hidden="true" className="home-orb-layer">
             <div className="home-orb home-orb-a" />
             <div className="home-orb home-orb-b" />
@@ -857,7 +1121,7 @@ export function App() {
         {!isHomeView ? (
           <header
             className={`topbar${
-              selectedToolId === "splitPdf" && activeView === "splitPdf"
+              isStudioView && activeView === selectedToolId
                 ? hasSelectedFiles
                   ? " split-topbar-loaded"
                   : " split-topbar-empty"
@@ -880,7 +1144,7 @@ export function App() {
                     : selectedTool.description}
               </p>
             </div>
-            {selectedToolId === "splitPdf" && activeView === "splitPdf" && hasSelectedFiles ? (
+            {isStudioView && activeView === selectedToolId && hasSelectedFiles ? (
               <SplitFileChip
                 file={form.input}
                 fileSize={sourceFileSize}
@@ -922,34 +1186,31 @@ export function App() {
             onCheckForUpdates={async () => setUpdateState(await checkForUpdates())}
             onInstallUpdate={async () => setUpdateState(await installPendingUpdate())}
           />
-        ) : selectedToolId === "splitPdf" ? (
-          <SplitStudio
+        ) : isStudioView ? (
+          <OperationStudio
             canRun={canRunSelectedTool}
             dragging={isDraggingFiles}
-            form={form}
-            groups={splitGroups}
+            fields={studioFields}
             hasFile={hasSelectedFiles}
+            mainCards={studioMain}
             packageZip={packageZip}
-            pageCount={pdfPreview?.pageCount ?? null}
-            plan={splitPlan}
-            preview={pdfPreview}
-            previewError={previewError}
-            previewLoading={isPreviewLoading}
+            packageZipAvailable={selectedToolId === "splitPdf" || selectedToolId === "pdfToJpg"}
+            pattern={form.outputPattern}
+            previewCard={studioPreview}
             recentFiles={restorableRecentFiles}
             running={activeJob?.status === "running"}
-            visibleCount={previewVisibleCount}
-            onGroupsChange={setSplitGroups}
+            runLabel={studioRunLabel}
+            showPattern={selectedToolId === "splitPdf"}
+            summary={studioSummary}
+            tool={selectedToolId}
             onPackageZipChange={setPackageZip}
+            onPatternChange={(pattern) =>
+              setForm((current) => ({ ...current, outputPattern: pattern }))
+            }
             onPickFiles={pickFiles}
-            onPatternChange={(pattern) => setForm((current) => ({ ...current, outputPattern: pattern }))}
-            onReset={resetSplitConfiguration}
+            onReset={selectedToolId === "splitPdf" ? resetSplitConfiguration : undefined}
             onRun={() => void runSelectedJob()}
             onSelectRecent={(path) => applySelectedFiles([path])}
-            onShowAllPreview={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
-            onShowMorePreview={() =>
-              setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
-            }
-            onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
           />
         ) : (
           <div className="workbench" style={{ "--tool-accent": selectedTool.accent } as CSSProperties}>
@@ -973,29 +1234,7 @@ export function App() {
                   {!selectedTool.needsMultipleInputs && form.input ? (
                     <StageFileBar file={form.input} onRemove={removeFile} />
                   ) : null}
-                  {selectedToolId === "organizePdf" ? (
-                <OrganizeBoard
-                  items={organizeItems}
-                  isLoading={isPreviewLoading}
-                  error={previewError}
-                  draggedId={draggedOrganizeId}
-                  pageCount={pdfPreview?.pageCount ?? 0}
-                  visibleCount={previewVisibleCount}
-                  onDelete={deleteOrganizeItem}
-                  onDuplicate={duplicateOrganizeItem}
-                  onDragEnd={() => setDraggedOrganizeId(null)}
-                  onDragStart={setDraggedOrganizeId}
-                  onMove={moveOrganizeItem}
-                  onRotate={rotateOrganizeItem}
-                  onZoomPage={(page, rotateDegrees) =>
-                    void openPageZoom(form.input, page, selectedTool.title, rotateDegrees)
-                  }
-                  onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
-                  onShowMore={() =>
-                    setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
-                  }
-                />
-              ) : selectedToolId === "mergePdf" ? (
+                  {selectedToolId === "mergePdf" ? (
                 <MergeBoard
                   files={form.inputs}
                   thumbnails={mergePreviews}
@@ -1005,18 +1244,6 @@ export function App() {
                   onMove={moveMergeItem}
                   onRemove={removeFile}
                   onZoomFile={(path) => void openPageZoom(path, 1, basename(path))}
-                />
-              ) : isPdfPreviewTool(selectedToolId) ? (
-                <PdfPreviewGrid
-                  preview={pdfPreview}
-                  isLoading={isPreviewLoading}
-                  error={previewError}
-                  visibleCount={previewVisibleCount}
-                  onZoomPage={(page) => void openPageZoom(form.input, page, selectedTool.title)}
-                  onShowAll={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
-                  onShowMore={() =>
-                    setPreviewVisibleCount((current) => current + DEFAULT_VISIBLE_PAGES)
-                  }
                 />
               ) : (
                 <SelectedFileStage files={selectedFiles} onRemove={removeFile} />
@@ -1082,17 +1309,26 @@ export function App() {
         )}
       </section>
       {activeJob &&
-      activeJob.tool === "splitPdf" &&
+      isStudioTool(activeJob.tool) &&
       activeJob.status === "complete" &&
       activeJob.result ? (
-        <SplitOutputModal
+        <StudioOutputModal
+          canPreview={activeJob.tool !== "pdfToJpg"}
           job={activeJob}
           packageZip={packageZip}
-          plan={splitPlan}
-          onClose={() => invalidateToolJobs("splitPdf")}
+          rowLabels={
+            activeJob.tool === "splitPdf"
+              ? (splitPlan?.groups.map((group) => group.label) ?? [])
+              : activeJob.tool === "pdfToJpg"
+                ? activeJob.result.outputs.map((_, index) => `Page ${index + 1}`)
+                : []
+          }
+          showZip={activeJob.tool === "splitPdf" || activeJob.tool === "pdfToJpg"}
+          summaryLine={activeJob.tool === "compressPdf" ? activeJob.message : null}
+          onClose={() => invalidateToolJobs(activeJob.tool)}
           onPreview={(output) => void openPageZoom(output, 1, basename(output))}
-          onSaveAll={() => void saveSplitAllOutputs(activeJob)}
-          onSaveRow={(output) => void saveSplitRow(activeJob, output)}
+          onSaveAll={() => void saveStudioAll(activeJob)}
+          onSaveRow={(output) => void saveStudioRow(activeJob, output)}
         />
       ) : null}
       {zoomState ? <PageZoomModal zoom={zoomState} onClose={() => setZoomState(null)} /> : null}
@@ -1335,103 +1571,168 @@ function groupPageCount(group: string, pageCount: number): number | null {
   return plan.groups.reduce((total, item) => total + item.pages.length, 0);
 }
 
-function SplitStudio({
+type StudioCopy = {
+  dropCopy: string;
+  steps: Array<[string, string, string]>;
+  tip: ReactNode;
+};
+
+function studioCopy(tool: ToolId): StudioCopy {
+  switch (tool) {
+    case "organizePdf":
+      return {
+        dropCopy: "Reorder, rotate, duplicate, or remove pages, then export the arranged document.",
+        steps: [
+          ["01", "Arrange Pages", "Drag page cards to reorder whole sections, or fine-tune individual boundaries."],
+          ["02", "Rotate & Prune", "Rotate sideways scans, duplicate repeated pages, or delete what you do not need."],
+          ["03", "One-Click Export", "The arranged document is written locally with page fidelity preserved."],
+        ],
+        tip: "Use the eye button on any page card to inspect it at full size before exporting.",
+      };
+    case "compressPdf":
+      return {
+        dropCopy: "Choose a preset and shrink this PDF without the file leaving your machine.",
+        steps: [
+          ["01", "Choose a Preset", "Safe stays fully lossless; Balanced and Small re-encode oversized photos."],
+          ["02", "Smart Downsampling", "High-resolution images are resampled only when they exceed practical DPI."],
+          ["03", "Verify Savings", "You see the exact reduction before deciding where to save the result."],
+        ],
+        tip: "Balanced is a good default. Small re-encodes photos more aggressively and may soften fine detail.",
+      };
+    case "pdfToJpg":
+      return {
+        dropCopy: "Render every page into a crisp JPG image, either as loose files or one ZIP bundle.",
+        steps: [
+          ["01", "Pick Resolution", "200 DPI matches a crisp screen; 300 DPI stands up to print."],
+          ["02", "True-to-Page Rendering", "Each page is rasterized exactly as it renders, annotations included."],
+          ["03", "Individual or Zipped", "Save every page on its own, or bundle the whole document as a ZIP."],
+        ],
+        tip: "Lower the quality to keep a whole photo-heavy document under a size limit.",
+      };
+    case "unlockPdf":
+      return {
+        dropCopy: "Remove a known password so the document opens anywhere, verified entirely on-device.",
+        steps: [
+          ["01", "Provide the Password", "Pidef asks for the document password you already know."],
+          ["02", "Local Decryption", "The decryption happens on this machine — nothing is uploaded."],
+          ["03", "Save the Copy", "Write an unprotected copy and keep the original untouched."],
+        ],
+        tip: "Pidef cannot guess passwords; it only removes protection you can already open.",
+      };
+    case "protectPdf":
+      return {
+        dropCopy: "Encrypt this PDF with a password and decide exactly what readers may do with it.",
+        steps: [
+          ["01", "Set Passwords", "A user password to open, and an owner password for full control."],
+          ["02", "Choose Permissions", "Allow or block printing, copying, and modification independently."],
+          ["03", "AES-256 Encryption", "Modern encryption, applied locally with no upload."],
+        ],
+        tip: "Keep the owner password somewhere safe — without it, permissions cannot be changed later.",
+      };
+    case "splitPdf":
+      default:
+      return {
+        dropCopy: "Select a PDF document from your workstation to configure segments, single-page splits, or customized range sequences.",
+        steps: [
+          ["01", "Target Ranges", "Define discrete brackets such as 1-4, 5-8, or standalone single pages to generate isolated volumes."],
+          ["02", "Visual Page Grid", "Inspect every page below, zoom thumbnails, and verify boundaries before you commit the split."],
+          ["03", "One-Click Export", "Receive a structured .zip bundle with intelligent naming, or save each document individually."],
+        ],
+        tip: (
+          <>
+            Quickly split by entering comma-separated numbers or hyphenated spans like{" "}
+            <code>1-3, 5, 7-10</code> in any group.
+          </>
+        ),
+      };
+  }
+}
+
+function OperationStudio({
   canRun,
   dragging,
-  form,
-  groups,
+  fields,
   hasFile,
+  mainCards,
   packageZip,
-  pageCount,
-  plan,
-  preview,
-  previewError,
-  previewLoading,
+  packageZipAvailable,
+  pattern,
+  previewCard,
   recentFiles,
   running,
-  visibleCount,
-  onGroupsChange,
+  runLabel,
+  showPattern,
+  summary,
+  tool,
   onPackageZipChange,
-  onPickFiles,
   onPatternChange,
+  onPickFiles,
   onReset,
   onRun,
   onSelectRecent,
-  onShowAllPreview,
-  onShowMorePreview,
-  onZoomPage,
 }: {
   canRun: boolean;
   dragging: boolean;
-  form: FormState;
-  groups: string[];
+  fields: ReactNode;
   hasFile: boolean;
+  mainCards: ReactNode;
   packageZip: boolean;
-  pageCount: number | null;
-  plan: SplitPlan | null;
-  preview: PdfPreview | null;
-  previewError: string | null;
-  previewLoading: boolean;
+  packageZipAvailable: boolean;
+  pattern: string;
+  previewCard: ReactNode;
   recentFiles: string[];
   running: boolean;
-  visibleCount: number;
-  onGroupsChange: (groups: string[]) => void;
+  runLabel: string;
+  showPattern: boolean;
+  summary: Array<{ label: string; value: string }>;
+  tool: ToolId;
   onPackageZipChange: (value: boolean) => void;
-  onPickFiles: () => void;
   onPatternChange: (value: string) => void;
-  onReset: () => void;
+  onPickFiles: () => void;
+  onReset?: () => void;
   onRun: () => void;
   onSelectRecent: (path: string) => void;
-  onShowAllPreview: () => void;
-  onShowMorePreview: () => void;
-  onZoomPage: (page: number) => void;
 }) {
+  const copy = studioCopy(tool);
+  const Icon = toolById[tool].icon;
+
   return (
     <div className={`split-studio ${hasFile || recentFiles.length > 0 ? "" : "split-studio-solo"}`}>
       <div className="split-studio-main">
         {hasFile ? (
           <>
-            <SplitGroupsCard
-              groups={groups}
-              pageCount={pageCount}
-              plan={plan}
-              onGroupsChange={onGroupsChange}
-            />
-            <section className="studio-card split-preview-card">
-              <PdfPreviewGrid
-                error={previewError}
-                isLoading={previewLoading}
-                onShowAll={onShowAllPreview}
-                onShowMore={onShowMorePreview}
-                onZoomPage={onZoomPage}
-                preview={preview}
-                title="Document Preview"
-                titleIcon={<BookOpen size={16} />}
-                visibleCount={visibleCount}
-              />
-            </section>
+            {mainCards}
+            {previewCard}
           </>
         ) : (
-          <SplitDropCard dragging={dragging} onPickFiles={onPickFiles} />
+          <StudioDropCard
+            copy={copy.dropCopy}
+            dragging={dragging}
+            icon={<Icon size={22} strokeWidth={1.7} />}
+            onPickFiles={onPickFiles}
+          />
         )}
       </div>
       {hasFile || recentFiles.length > 0 ? (
         <aside className="split-studio-aside">
           {hasFile ? (
             <>
-              <SplitOutputSettings
+              <StudioOutputSettings
                 canRun={canRun}
+                fields={fields}
                 packageZip={packageZip}
-                pageCount={pageCount}
-                pattern={form.outputPattern}
-                plan={plan}
+                packageZipAvailable={packageZipAvailable}
+                pattern={pattern}
+                runLabel={runLabel}
                 running={running}
+                showPattern={showPattern}
+                summary={summary}
                 onPackageZipChange={onPackageZipChange}
                 onPatternChange={onPatternChange}
                 onReset={onReset}
                 onRun={onRun}
               />
-              <SplitTipCard />
+              <StudioTipCard>{copy.tip}</StudioTipCard>
             </>
           ) : (
             <SplitRecentPanel files={recentFiles} onSelect={onSelectRecent} />
@@ -1440,32 +1741,33 @@ function SplitStudio({
       ) : null}
       {!hasFile ? (
         <div className="split-studio-full">
-          <SplitInfoCards />
+          <StudioInfoCards steps={copy.steps} />
         </div>
       ) : null}
     </div>
   );
 }
 
-function SplitDropCard({
+function StudioDropCard({
+  copy,
   dragging,
+  icon,
   onPickFiles,
 }: {
+  copy: string;
   dragging: boolean;
+  icon: ReactNode;
   onPickFiles: () => void;
 }) {
   return (
     <section className={`studio-card split-drop-card ${dragging ? "dragging" : ""}`}>
       <div className="split-drop-body">
         <span className="split-drop-icon">
-          <Split size={22} strokeWidth={1.7} />
+          {icon}
           <em>+</em>
         </span>
         <h2>Drop your PDF here</h2>
-        <p>
-          Select a PDF document from your workstation to configure segments,
-          single-page splits, or customized range sequences.
-        </p>
+        <p>{copy}</p>
         <button className="split-drop-cta" onClick={onPickFiles} type="button">
           <FilePlus2 size={15} />
           Choose File
@@ -1476,28 +1778,10 @@ function SplitDropCard({
   );
 }
 
-const SPLIT_STEPS: Array<[string, string, string]> = [
-  [
-    "01",
-    "Target Ranges",
-    "Define discrete brackets such as 1-4, 5-8, or standalone single pages to generate isolated volumes.",
-  ],
-  [
-    "02",
-    "Visual Page Grid",
-    "Inspect every page below, zoom thumbnails, and verify boundaries before you commit the split.",
-  ],
-  [
-    "03",
-    "One-Click Export",
-    "Receive a structured .zip bundle with intelligent naming, or save each document individually.",
-  ],
-];
-
-function SplitInfoCards() {
+function StudioInfoCards({ steps }: { steps: Array<[string, string, string]> }) {
   return (
     <section className="split-info-cards">
-      {SPLIT_STEPS.map(([number, title, copy]) => (
+      {steps.map(([number, title, copy]) => (
         <div className="split-info-card" key={number}>
           <span className="split-info-number">{number}</span>
           <div>
@@ -1595,34 +1879,35 @@ function SplitGroupsCard({
   );
 }
 
-function SplitOutputSettings({
+function StudioOutputSettings({
   canRun,
+  fields,
   packageZip,
-  pageCount,
+  packageZipAvailable,
   pattern,
-  plan,
+  runLabel,
   running,
+  showPattern,
+  summary,
   onPackageZipChange,
   onPatternChange,
   onReset,
   onRun,
 }: {
   canRun: boolean;
+  fields: ReactNode;
   packageZip: boolean;
-  pageCount: number | null;
+  packageZipAvailable: boolean;
   pattern: string;
-  plan: SplitPlan | null;
+  runLabel: string;
   running: boolean;
+  showPattern: boolean;
+  summary: Array<{ label: string; value: string }>;
   onPackageZipChange: (value: boolean) => void;
   onPatternChange: (value: string) => void;
-  onReset: () => void;
+  onReset?: () => void;
   onRun: () => void;
 }) {
-  const files = plan?.groups.length ?? 0;
-  const covered = plan
-    ? plan.groups.reduce((total, group) => total + group.pages.length, 0)
-    : 0;
-
   return (
     <section className="studio-card">
       <div className="studio-card-heading">
@@ -1631,69 +1916,64 @@ function SplitOutputSettings({
           Output Settings
         </h3>
       </div>
-      <label className="split-setting-field">
-        <span>File Naming Format</span>
-        <input onChange={(event) => onPatternChange(event.target.value)} value={pattern} />
-      </label>
-      <p className="split-setting-hint">
-        Variables: <code>{"{filename}"}</code>, <code>{"{n}"}</code>,{" "}
-        <code>{"{range}"}</code>
-      </p>
-      <label className="split-zip-row">
-        <span>
-          <strong>Package into ZIP archive</strong>
-          <small>Bundle all split documents together</small>
-        </span>
-        <input
-          checked={packageZip}
-          onChange={(event) => onPackageZipChange(event.target.checked)}
-          type="checkbox"
-        />
-      </label>
+      {showPattern ? (
+        <>
+          <label className="split-setting-field">
+            <span>File Naming Format</span>
+            <input onChange={(event) => onPatternChange(event.target.value)} value={pattern} />
+          </label>
+          <p className="split-setting-hint">
+            Variables: <code>{"{filename}"}</code>, <code>{"{n}"}</code>,{" "}
+            <code>{"{range}"}</code>
+          </p>
+        </>
+      ) : null}
+      {fields}
+      {packageZipAvailable ? (
+        <label className="split-zip-row">
+          <span>
+            <strong>Package into ZIP archive</strong>
+            <small>Bundle all generated files together</small>
+          </span>
+          <input
+            checked={packageZip}
+            onChange={(event) => onPackageZipChange(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
+      ) : null}
       <div className="split-summary">
-        <div>
-          <span>Total Resulting Files</span>
-          <strong>
-            {files} PDF{files === 1 ? "" : "s"}
-          </strong>
-        </div>
-        <div>
-          <span>Total Pages Covered</span>
-          <strong>
-            {covered} of {pageCount ?? "?"} pages
-          </strong>
-        </div>
-        <div>
-          <span>Estimated Download</span>
-          <strong>—</strong>
-        </div>
+        {summary.map((row) => (
+          <div key={row.label}>
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
       </div>
-      <button className="split-run-pill" disabled={!canRun || running} onClick={onRun} type="button">
+      <button
+        className="split-run-pill"
+        disabled={!canRun || running}
+        onClick={onRun}
+        type="button"
+      >
         {running ? <Loader2 className="spin" size={15} /> : <ListOrdered size={15} />}
-        <span>
-          {running
-            ? "Splitting…"
-            : files > 0
-              ? `Split PDF into ${files} File${files === 1 ? "" : "s"}`
-              : "Split PDF"}
-        </span>
+        <span>{running ? "Working…" : runLabel}</span>
         <kbd>&#8984;&#8629;</kbd>
       </button>
-      <button className="split-reset-button" onClick={onReset} type="button">
-        Reset Configuration
-      </button>
+      {onReset ? (
+        <button className="split-reset-button" onClick={onReset} type="button">
+          Reset Configuration
+        </button>
+      ) : null}
     </section>
   );
 }
 
-function SplitTipCard() {
+function StudioTipCard({ children }: { children: ReactNode }) {
   return (
     <section className="studio-card split-tip-card">
       <Lightbulb size={16} />
-      <p>
-        Quickly split by entering comma-separated numbers or hyphenated spans like{" "}
-        <code>1-3, 5, 7-10</code> in any group.
-      </p>
+      <p>{children}</p>
     </section>
   );
 }
@@ -1784,18 +2064,24 @@ function SplitRecentPanel({
   );
 }
 
-function SplitOutputModal({
+function StudioOutputModal({
+  canPreview,
   job,
   packageZip,
-  plan,
+  rowLabels,
+  showZip,
+  summaryLine,
   onClose,
   onPreview,
   onSaveAll,
   onSaveRow,
 }: {
+  canPreview: boolean;
   job: JobState;
   packageZip: boolean;
-  plan: SplitPlan | null;
+  rowLabels: string[];
+  showZip: boolean;
+  summaryLine?: string | null;
   onClose: () => void;
   onPreview: (output: string) => void;
   onSaveAll: () => void;
@@ -1833,6 +2119,13 @@ function SplitOutputModal({
 
   const count = result.outputs.length;
   const total = result.outputBytes ? formatBytes(result.outputBytes) : "—";
+  const zipActive = showZip && packageZip && count > 1;
+  const primaryLabel =
+    count === 1
+      ? `Save As (${total})`
+      : zipActive
+        ? `Download All (ZIP • ${total})`
+        : `Save All (${total})`;
 
   return (
     <div className="split-modal-overlay" onClick={onClose} role="presentation">
@@ -1845,14 +2138,13 @@ function SplitOutputModal({
             <CheckCircle2 size={22} />
           </span>
           <div>
-            <em>Split complete</em>
+            <em>{toolById[job.tool].title} complete</em>
             <h2>
               {count === 1 ? "1 File Ready for Export" : `${count} Files Ready for Export`}
             </h2>
             <p>
-              Your documents have been separated into {count}{" "}
-              {count === 1 ? "constituent file" : "constituent files"} with page fidelity
-              preserved.
+              {summaryLine ??
+                "Your documents have been generated locally with page fidelity preserved."}
             </p>
           </div>
         </div>
@@ -1869,14 +2161,16 @@ function SplitOutputModal({
               <div className="split-modal-row-meta">
                 <strong>{basename(output)}</strong>
                 <small>
-                  {plan?.groups[index] ? `${plan.groups[index].label} · ` : ""}
+                  {rowLabels[index] ? `${rowLabels[index]} · ` : ""}
                   {sizes[output] ? formatBytes(sizes[output]) : "…"}
                 </small>
               </div>
-              <button className="split-modal-preview" onClick={() => onPreview(output)} type="button">
-                <Eye size={14} />
-                Preview
-              </button>
+              {canPreview ? (
+                <button className="split-modal-preview" onClick={() => onPreview(output)} type="button">
+                  <Eye size={14} />
+                  Preview
+                </button>
+              ) : null}
               <button
                 className="split-modal-download"
                 onClick={() => onSaveRow(output)}
@@ -1891,7 +2185,7 @@ function SplitOutputModal({
         <div className="split-modal-actions">
           <button className="split-modal-primary" onClick={onSaveAll} type="button">
             <Download size={15} />
-            {packageZip ? `Download All (ZIP • ${total})` : "Download All"}
+            {primaryLabel}
           </button>
           <button className="split-modal-done" onClick={onClose} type="button">
             Done
@@ -2114,44 +2408,6 @@ function OperationFields({
 }) {
   return (
     <section className="side-section">
-      {selectedToolId === "compressPdf" ? (
-        <Field label="Compression profile">
-          <select
-            value={form.profile}
-            onChange={(event) =>
-              onChange({ ...form, profile: event.target.value as FormState["profile"] })
-            }
-          >
-            <option value="safe">Safe — lossless optimization</option>
-            <option value="balanced">Balanced — recommended</option>
-            <option value="small">Small — softest images</option>
-          </select>
-        </Field>
-      ) : null}
-
-      {selectedToolId === "pdfToJpg" ? (
-        <div className="inline-fields stacked">
-          <Field label="DPI">
-            <input
-              min={72}
-              max={600}
-              type="number"
-              value={form.dpi}
-              onChange={(event) => onChange({ ...form, dpi: Number(event.target.value) })}
-            />
-          </Field>
-          <Field label="JPG quality">
-            <input
-              min={1}
-              max={100}
-              type="number"
-              value={form.quality}
-              onChange={(event) => onChange({ ...form, quality: Number(event.target.value) })}
-            />
-          </Field>
-        </div>
-      ) : null}
-
       {selectedToolId === "jpgToPdf" ? (
         <div className="inline-fields stacked">
           <Field label="Page size">
@@ -2176,60 +2432,6 @@ function OperationFields({
         </div>
       ) : null}
 
-      {selectedToolId === "unlockPdf" ? (
-        <Field label="Password">
-          <input
-            type="password"
-            value={form.password}
-            onChange={(event) => onChange({ ...form, password: event.target.value })}
-          />
-        </Field>
-      ) : null}
-
-      {selectedToolId === "protectPdf" ? (
-        <>
-          <Field label="User password">
-            <input
-              type="password"
-              value={form.userPassword}
-              onChange={(event) => onChange({ ...form, userPassword: event.target.value })}
-            />
-          </Field>
-          <Field label="Owner password">
-            <input
-              type="password"
-              value={form.ownerPassword}
-              onChange={(event) => onChange({ ...form, ownerPassword: event.target.value })}
-            />
-          </Field>
-          <div className="toggle-row stacked">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.allowPrinting}
-                onChange={(event) => onChange({ ...form, allowPrinting: event.target.checked })}
-              />
-              Allow printing
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.allowCopying}
-                onChange={(event) => onChange({ ...form, allowCopying: event.target.checked })}
-              />
-              Allow copying
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.allowModification}
-                onChange={(event) => onChange({ ...form, allowModification: event.target.checked })}
-              />
-              Allow modification
-            </label>
-          </div>
-        </>
-      ) : null}
     </section>
   );
 }

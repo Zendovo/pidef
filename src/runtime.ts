@@ -2,7 +2,7 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type { DependencySet, OperationOptions, PdfPreview } from "./types";
 import { webDependencies, webOperationOptions } from "./web/deps";
 import { executeWebJob } from "./web/engineClient";
-import { renderWebPdfPreview } from "./web/preview";
+import { renderWebImageThumbnail, renderWebPdfPreview } from "./web/preview";
 import { getFileSize } from "./web/registry";
 import type { WebJobRequest } from "./web/protocol";
 
@@ -42,6 +42,11 @@ export async function invokeCommand<T>(command: string, args?: Record<string, un
             quality?: number;
           };
         }).request,
+      )) as T;
+
+    case "get_image_thumbnail":
+      return (await renderWebImageThumbnail(
+        args as { path: string; width?: number },
       )) as T;
 
     case "get_file_size": {

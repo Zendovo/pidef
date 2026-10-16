@@ -68,24 +68,24 @@ console.log("1. app loaded:", await page.title());
 
 await page.getByRole("button", { name: "Merge PDF", exact: true }).click();
 const chooserPromise = page.waitForEvent("filechooser");
-await page.getByText("Drop files here or choose files").click();
+await page.getByRole("button", { name: /Choose Files/ }).click();
 await (await chooserPromise).setFiles([
   join(temp, "a.pdf"),
   join(temp, "b.pdf"),
 ]);
-await page.getByText("Merge order").waitFor({ timeout: 60_000 });
-console.log("2. merge board shows:", await page.locator(".merge-card").count(), "cards");
+await page.locator(".split-queue-row").first().waitFor({ timeout: 60_000 });
+await page.waitForTimeout(800);
+console.log("2. merge queue shows:", await page.locator(".split-queue-row").count(), "documents");
 
-await page.getByRole("button", { name: "Merge PDFs" }).click();
-await page.getByText("Merge PDF complete").waitFor({ timeout: 60_000 });
-console.log("3. merge complete:", await page.locator(".output-meta span").innerText());
+await page.locator(".split-run-pill").click();
+await page.getByText("Ready for Export").waitFor({ timeout: 60_000 });
+console.log("3. merge complete:", await page.locator(".split-modal-row-meta strong").first().innerText());
 
 const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
-await page.getByRole("button", { name: "Save As…" }).click();
+await page.getByRole("button", { name: /Save As/ }).click();
 const download = await downloadPromise;
 console.log("4. saved via download:", download.suggestedFilename());
-
-await page.getByRole("button", { name: "Start over" }).click();
+await page.getByRole("button", { name: "Done" }).click();
 await page.getByRole("button", { name: "Compress PDF", exact: true }).click();
 const chooserPromise2 = page.waitForEvent("filechooser");
 await page.getByRole("button", { name: /Choose File/ }).click();

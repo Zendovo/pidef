@@ -12,6 +12,7 @@ import {
   FilePlus2,
   FileText,
   Files,
+  GripVertical,
   Home,
   Lightbulb,
   ListOrdered,
@@ -103,10 +104,12 @@ const DEFAULT_VISIBLE_PAGES = 20;
 const SHOW_ALL_PREVIEW_LIMIT = 65_535;
 const DEFAULT_SPLIT_GROUPS = ["1-2"];
 const STUDIO_TOOLS: ToolId[] = [
+  "mergePdf",
   "splitPdf",
   "organizePdf",
   "compressPdf",
   "pdfToJpg",
+  "jpgToPdf",
   "unlockPdf",
   "protectPdf",
 ];
@@ -139,7 +142,9 @@ export function App() {
     ),
   );
   const [previewVisibleCount, setPreviewVisibleCount] = useState(DEFAULT_VISIBLE_PAGES);
-  const [mergePreviews, setMergePreviews] = useState<Record<string, string>>({});
+  const [mergeFrames, setMergeFrames] = useState<
+    Record<string, { pages: { page: number; dataUrl: string }[]; pageCount: number; size: number | null }>
+  >({});
   const [draggedMergePath, setDraggedMergePath] = useState<string | null>(null);
   const [sourceFileSize, setSourceFileSize] = useState<number | null>(null);
   const [splitGroups, setSplitGroups] = useState<string[]>(DEFAULT_SPLIT_GROUPS);
@@ -243,27 +248,43 @@ export function App() {
   }, [selectedToolId, selectedFiles.join("|"), previewVisibleCount]);
 
   useEffect(() => {
-    if (selectedToolId !== "mergePdf" || form.inputs.length === 0) {
-      setMergePreviews({});
+    if (
+      (selectedToolId !== "mergePdf" && selectedToolId !== "jpgToPdf") ||
+      form.inputs.length === 0
+    ) {
+      setMergeFrames({});
       return;
     }
 
     let isCancelled = false;
     for (const input of form.inputs) {
-      setMergePreviews((current) => (input in current ? current : { ...current, [input]: "" }));
-      void invokeCommand<PdfPreview>("get_pdf_preview", {
-        request: { input, maxPages: 1, width: 180, quality: 74 },
-      })
-        .then((preview) => {
-          if (isCancelled) return;
-          const thumbnail = preview.pages[0]?.dataUrl;
-          if (thumbnail) {
-            setMergePreviews((current) => ({ ...current, [input]: thumbnail }));
+      setMergeFrames((current) =>
+        input in current ? current : { ...current, [input]: { pages: [], pageCount: 0, size: null } },
+      );
+      const isImage = /\.(jpe?g)$/i.test(input);
+      const framesPromise = isImage
+        ? invokeCommand<string>("get_image_thumbnail", { path: input, width: 140 }).then(
+            (dataUrl) => ({ pages: [{ page: 1, dataUrl }], pageCount: 1 }),
+          )
+        : invokeCommand<PdfPreview>("get_pdf_preview", {
+            request: { input, maxPages: 6, width: 140, quality: 70 },
+          }).then((preview) => ({
+            pages: preview.pages.map((page) => ({ page: page.pageNumber, dataUrl: page.dataUrl })),
+            pageCount: preview.pageCount,
+          }));
+      const sizePromise = invokeCommand<number>("get_file_size", { path: input }).catch(
+        () => null,
+      );
+
+      void Promise.all([framesPromise, sizePromise])
+        .then(([frames, size]) => {
+          if (!isCancelled) {
+            setMergeFrames((current) => ({ ...current, [input]: { ...frames, size } }));
           }
         })
         .catch(() => {
           if (!isCancelled) {
-            setMergePreviews((current) => {
+            setMergeFrames((current) => {
               const next = { ...current };
               delete next[input];
               return next;
@@ -436,10 +457,14 @@ export function App() {
       message: null,
     });
     try {
-      const preview = await invokeCommand<PdfPreview>("get_pdf_preview", {
-        request: { input, pages: [pageNumber], width: 980, quality: 86 },
-      });
-      const src = preview.pages[0]?.dataUrl ?? null;
+      const isImage = /\.(jpe?g)$/i.test(input);
+      const src = isImage
+        ? await invokeCommand<string>("get_image_thumbnail", { path: input, width: 960 })
+        : ((
+            await invokeCommand<PdfPreview>("get_pdf_preview", {
+              request: { input, pages: [pageNumber], width: 980, quality: 86 },
+            })
+          ).pages[0]?.dataUrl ?? null);
       setZoomState((current) =>
         current && current.pageNumber === pageNumber
           ? {
@@ -493,6 +518,12 @@ export function App() {
     setJobs((current) => current.filter((job) => job.tool !== tool));
   }
 
+  function clearAllFiles() {
+    invalidateToolJobs(selectedToolId);
+    setForm((current) => ({ ...current, input: "", inputs: [] }));
+    setMergeFrames({});
+  }
+
   function removeFile(path: string) {
     invalidateToolJobs(selectedToolId);
     if (selectedTool.needsMultipleInputs) {
@@ -513,7 +544,7 @@ export function App() {
     setPdfPreview(null);
     setPreviewError(null);
     setPreviewVisibleCount(DEFAULT_VISIBLE_PAGES);
-    setMergePreviews({});
+    setMergeFrames({});
     setSourceFileSize(null);
   }
 
@@ -780,6 +811,43 @@ export function App() {
           { label: "Pages to Export", value: `${pdfPreview?.pageCount ?? "?"}` },
           { label: "Export DPI", value: `${form.dpi}` },
         ];
+      case "mergePdf": {
+        const knownPages = form.inputs.reduce(
+          (sum, path) => sum + (mergeFrames[path]?.pageCount ?? 0),
+          0,
+        );
+        const sizes = form.inputs.map((path) => mergeFrames[path]?.size ?? null);
+        const allSizesKnown = form.inputs.length > 0 && sizes.every((size) => size !== null);
+        const totalSize = allSizesKnown
+          ? sizes.reduce((sum, size) => (sum ?? 0) + (size ?? 0), 0)
+          : null;
+        return [
+          {
+            label: "Input Documents",
+            value: `${form.inputs.length} file${form.inputs.length === 1 ? "" : "s"}`,
+          },
+          {
+            label: "Total Combined Pages",
+            value: knownPages > 0 ? `${knownPages} pages` : "—",
+          },
+          {
+            label: "Estimated Output Size",
+            value: totalSize !== null ? `~${formatBytes(totalSize)}` : "—",
+          },
+        ];
+      }
+      case "jpgToPdf":
+        return [
+          {
+            label: "Input Images",
+            value: `${form.inputs.length} image${form.inputs.length === 1 ? "" : "s"}`,
+          },
+          {
+            label: "Page Size",
+            value:
+              form.pageSize === "auto" ? "Auto" : form.pageSize === "a4" ? "A4" : "Letter",
+          },
+        ];
       case "unlockPdf":
         return [{ label: "Output", value: "Decrypted copy" }];
       case "protectPdf":
@@ -815,6 +883,70 @@ export function App() {
   })();
   const studioFields = (
     <>
+      {selectedToolId === "mergePdf" ? (
+        <>
+          <label className="split-setting-field">
+            <span>Output File Name</span>
+            <input
+              onChange={(event) =>
+                setForm((current) => ({ ...current, output: event.target.value }))
+              }
+              placeholder="merged.pdf"
+              value={form.output}
+            />
+          </label>
+          <p className="split-setting-hint">
+            Used as the suggested name when saving the merged PDF.
+          </p>
+          <div className="split-attribute-card">
+            <strong>Preserve Document Bookmarks</strong>
+            <small>Keeps original outlines and internal navigation in the merged document.</small>
+          </div>
+        </>
+      ) : null}
+      {selectedToolId === "jpgToPdf" ? (
+        <>
+          <div className="split-field-grid">
+            <label className="split-setting-field">
+              <span>Page Size</span>
+              <select
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, pageSize: event.target.value }))
+                }
+                value={form.pageSize}
+              >
+                <option value="auto">Auto</option>
+                <option value="a4">A4</option>
+                <option value="letter">Letter</option>
+              </select>
+            </label>
+            <label className="split-setting-field">
+              <span>Fit Mode</span>
+              <select
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, fitMode: event.target.value }))
+                }
+                value={form.fitMode}
+              >
+                <option value="fit">Fit</option>
+                <option value="fill">Fill</option>
+              </select>
+            </label>
+          </div>
+          <label className="split-setting-field">
+            <span>Margin (mm)</span>
+            <input
+              max={50}
+              min={0}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, marginMm: Number(event.target.value) }))
+              }
+              type="number"
+              value={form.marginMm}
+            />
+          </label>
+        </>
+      ) : null}
       {selectedToolId === "compressPdf" ? (
         <label className="split-setting-field">
           <span>Compression Profile</span>
@@ -937,6 +1069,19 @@ export function App() {
   );
   const studioMain = (
     <>
+      {selectedToolId === "mergePdf" || selectedToolId === "jpgToPdf" ? (
+        <MergeQueueCard
+          draggedId={draggedMergePath}
+          files={form.inputs}
+          frames={mergeFrames}
+          tool={selectedToolId}
+          onAddFiles={pickFiles}
+          onDragEnd={() => setDraggedMergePath(null)}
+          onDragStart={setDraggedMergePath}
+          onMove={moveMergeItem}
+          onRemove={removeFile}
+        />
+      ) : null}
       {selectedToolId === "splitPdf" ? (
         <SplitGroupsCard
           groups={splitGroups}
@@ -973,7 +1118,17 @@ export function App() {
     </>
   );
   const studioPreview =
-    selectedToolId === "organizePdf" ? null : (
+    selectedToolId === "organizePdf" ? null : selectedToolId === "mergePdf" ||
+      selectedToolId === "jpgToPdf" ? (
+      <PageFlowCard
+        files={form.inputs}
+        frames={mergeFrames}
+        tool={selectedToolId}
+        visibleCount={previewVisibleCount}
+        onExpand={() => setPreviewVisibleCount(SHOW_ALL_PREVIEW_LIMIT)}
+        onZoomFile={(path, page) => void openPageZoom(path, page, basename(path))}
+      />
+    ) : (
       <section className="studio-card split-preview-card">
         <PdfPreviewGrid
           error={previewError}
@@ -1145,12 +1300,24 @@ export function App() {
               </p>
             </div>
             {isStudioView && activeView === selectedToolId && hasSelectedFiles ? (
-              <SplitFileChip
-                file={form.input}
-                fileSize={sourceFileSize}
-                pageCount={pdfPreview?.pageCount ?? null}
-                onReplace={pickFiles}
-              />
+              selectedTool.needsMultipleInputs ? (
+                <div className="topbar-actions">
+                  <button className="topbar-ghost-pill" onClick={clearAllFiles} type="button">
+                    Clear All
+                  </button>
+                  <button className="topbar-solid-pill" onClick={pickFiles} type="button">
+                    <Plus size={14} />
+                    Add More Files
+                  </button>
+                </div>
+              ) : (
+                <SplitFileChip
+                  file={form.input}
+                  fileSize={sourceFileSize}
+                  pageCount={pdfPreview?.pageCount ?? null}
+                  onReplace={pickFiles}
+                />
+              )
             ) : (
               <button className="icon-button" onClick={refreshRuntime} type="button" title="Refresh">
                 <RefreshCw size={18} />
@@ -1212,101 +1379,7 @@ export function App() {
             onRun={() => void runSelectedJob()}
             onSelectRecent={(path) => applySelectedFiles([path])}
           />
-        ) : (
-          <div className="workbench" style={{ "--tool-accent": selectedTool.accent } as CSSProperties}>
-            <section className={hasSelectedFiles ? "preview-stage" : "empty-stage"}>
-              {!hasSelectedFiles ? (
-                <>
-                  <FileDropZone
-                    dragging={isDraggingFiles}
-                    multiple={selectedTool.needsMultipleInputs}
-                    onPick={pickFiles}
-                    title={
-                      selectedTool.needsMultipleInputs
-                        ? "Drop files here or choose files"
-                        : "Drop a file here or choose a file"
-                    }
-                  />
-                  <RecentFiles files={restorableRecentFiles} onOpenFile={(path) => applySelectedFiles([path])} />
-                </>
-              ) : (
-                <>
-                  {!selectedTool.needsMultipleInputs && form.input ? (
-                    <StageFileBar file={form.input} onRemove={removeFile} />
-                  ) : null}
-                  {selectedToolId === "mergePdf" ? (
-                <MergeBoard
-                  files={form.inputs}
-                  thumbnails={mergePreviews}
-                  draggedId={draggedMergePath}
-                  onDragEnd={() => setDraggedMergePath(null)}
-                  onDragStart={setDraggedMergePath}
-                  onMove={moveMergeItem}
-                  onRemove={removeFile}
-                  onZoomFile={(path) => void openPageZoom(path, 1, basename(path))}
-                />
-              ) : (
-                <SelectedFileStage files={selectedFiles} onRemove={removeFile} />
-              )}
-                </>
-              )}
-            </section>
-
-            <aside className="options-panel">
-              <div className="panel-heading">
-                <h3>Options</h3>
-              </div>
-
-              {hasOutput && activeJob ? (
-                <OutputPanel
-                  job={activeJob}
-                  onSaveAs={() => void saveAsCurrentOutput()}
-                  onStartOver={startOver}
-                />
-              ) : (
-                <>
-                  {disabledReason ? (
-                    <div className="notice warning">
-                      <CircleAlert size={18} />
-                      <span>{availabilityMessage(disabledReason)}</span>
-                    </div>
-                  ) : null}
-
-                  {selectedTool.needsMultipleInputs && hasSelectedFiles ? (
-                    <div className="file-selection-summary">
-                      <span>{`${selectedFiles.length} files selected`}</span>
-                      <button className="save-button compact" onClick={pickFiles} type="button">
-                        <FilePlus2 size={15} />
-                        Add files
-                      </button>
-                    </div>
-                  ) : (
-                    <button className="save-button" onClick={pickFiles} type="button">
-                      <FilePlus2 size={16} />
-                      {selectedTool.needsMultipleInputs ? "Add files" : "Add file"}
-                    </button>
-                  )}
-
-                  <OperationFields selectedToolId={selectedToolId} form={form} onChange={setForm} />
-
-                  {selectedToolId === "compressPdf" && form.input ? (
-                    <p className="source-size-note">
-                      <strong>{sourceFileSize ? formatBytes(sourceFileSize) : "—"}</strong>
-                      <span>current file size</span>
-                    </p>
-                  ) : null}
-
-                  <OperationRunButton
-                    disabled={!canRunSelectedTool}
-                    tool={selectedToolId}
-                    onRun={() => void runSelectedJob()}
-                  />
-                  <CurrentJobStatus job={activeJob} />
-                </>
-              )}
-            </aside>
-          </div>
-        )}
+        ) : null}
       </section>
       {activeJob &&
       isStudioTool(activeJob.tool) &&
@@ -1314,17 +1387,51 @@ export function App() {
       activeJob.result ? (
         <StudioOutputModal
           canPreview={activeJob.tool !== "pdfToJpg"}
+          chips={
+            activeJob.tool === "mergePdf"
+              ? form.inputs.map((path, index) => {
+                  const pages = mergeFrames[path]?.pageCount ?? 0;
+                  const start =
+                    1 +
+                    form.inputs
+                      .slice(0, index)
+                      .reduce((sum, item) => sum + (mergeFrames[item]?.pageCount ?? 0), 0);
+                  const range =
+                    pages === 1
+                      ? ` (p. ${start})`
+                      : pages > 1
+                        ? ` (pp. ${start}-${start + pages - 1})`
+                        : "";
+                  return `${index + 1}. ${basename(path)}${range}`;
+                })
+              : undefined
+          }
+          chipsLabel="Included documents in order"
           job={activeJob}
           packageZip={packageZip}
+          readyTitle={activeJob.tool === "mergePdf" ? "Merged PDF Ready for Export" : undefined}
           rowLabels={
             activeJob.tool === "splitPdf"
               ? (splitPlan?.groups.map((group) => group.label) ?? [])
               : activeJob.tool === "pdfToJpg"
                 ? activeJob.result.outputs.map((_, index) => `Page ${index + 1}`)
-                : []
+                : activeJob.tool === "mergePdf"
+                  ? [
+                      `${form.inputs.reduce(
+                        (sum, path) => sum + (mergeFrames[path]?.pageCount ?? 0),
+                        0,
+                      )} pages`,
+                    ]
+                  : []
           }
           showZip={activeJob.tool === "splitPdf" || activeJob.tool === "pdfToJpg"}
-          summaryLine={activeJob.tool === "compressPdf" ? activeJob.message : null}
+          summaryLine={
+            activeJob.tool === "compressPdf"
+              ? activeJob.message
+              : activeJob.tool === "mergePdf"
+                ? `${form.inputs.length} documents consolidated into one PDF with page fidelity preserved.`
+                : null
+          }
           onClose={() => invalidateToolJobs(activeJob.tool)}
           onPreview={(output) => void openPageZoom(output, 1, basename(output))}
           onSaveAll={() => void saveStudioAll(activeJob)}
@@ -1573,6 +1680,8 @@ function groupPageCount(group: string, pageCount: number): number | null {
 
 type StudioCopy = {
   dropCopy: string;
+  dropTitle: string;
+  cta: string;
   steps: Array<[string, string, string]>;
   tip: ReactNode;
 };
@@ -1582,6 +1691,8 @@ function studioCopy(tool: ToolId): StudioCopy {
     case "organizePdf":
       return {
         dropCopy: "Reorder, rotate, duplicate, or remove pages, then export the arranged document.",
+        dropTitle: "Drop your PDF here",
+        cta: "Choose File",
         steps: [
           ["01", "Arrange Pages", "Drag page cards to reorder whole sections, or fine-tune individual boundaries."],
           ["02", "Rotate & Prune", "Rotate sideways scans, duplicate repeated pages, or delete what you do not need."],
@@ -1592,6 +1703,8 @@ function studioCopy(tool: ToolId): StudioCopy {
     case "compressPdf":
       return {
         dropCopy: "Choose a preset and shrink this PDF without the file leaving your machine.",
+        dropTitle: "Drop your PDF here",
+        cta: "Choose File",
         steps: [
           ["01", "Choose a Preset", "Safe stays fully lossless; Balanced and Small re-encode oversized photos."],
           ["02", "Smart Downsampling", "High-resolution images are resampled only when they exceed practical DPI."],
@@ -1602,6 +1715,8 @@ function studioCopy(tool: ToolId): StudioCopy {
     case "pdfToJpg":
       return {
         dropCopy: "Render every page into a crisp JPG image, either as loose files or one ZIP bundle.",
+        dropTitle: "Drop your PDF here",
+        cta: "Choose File",
         steps: [
           ["01", "Pick Resolution", "200 DPI matches a crisp screen; 300 DPI stands up to print."],
           ["02", "True-to-Page Rendering", "Each page is rasterized exactly as it renders, annotations included."],
@@ -1612,6 +1727,8 @@ function studioCopy(tool: ToolId): StudioCopy {
     case "unlockPdf":
       return {
         dropCopy: "Remove a known password so the document opens anywhere, verified entirely on-device.",
+        dropTitle: "Drop your PDF here",
+        cta: "Choose File",
         steps: [
           ["01", "Provide the Password", "Pidef asks for the document password you already know."],
           ["02", "Local Decryption", "The decryption happens on this machine — nothing is uploaded."],
@@ -1622,6 +1739,8 @@ function studioCopy(tool: ToolId): StudioCopy {
     case "protectPdf":
       return {
         dropCopy: "Encrypt this PDF with a password and decide exactly what readers may do with it.",
+        dropTitle: "Drop your PDF here",
+        cta: "Choose File",
         steps: [
           ["01", "Set Passwords", "A user password to open, and an owner password for full control."],
           ["02", "Choose Permissions", "Allow or block printing, copying, and modification independently."],
@@ -1629,10 +1748,37 @@ function studioCopy(tool: ToolId): StudioCopy {
         ],
         tip: "Keep the owner password somewhere safe — without it, permissions cannot be changed later.",
       };
+    case "mergePdf":
+      return {
+        dropCopy:
+          "Select multiple PDF documents from your workstation to arrange order, unify page flow, and merge into a single master document.",
+        dropTitle: "Drop multiple PDFs here",
+        cta: "Choose Files",
+        steps: [
+          ["01", "Sequence & Reorder", "Drag documents into target reading order or sort alphabetically with custom priority."],
+          ["02", "Bookmark & Outline Sync", "Retain original document outlines, table of contents hierarchy, and internal navigational links."],
+          ["03", "Full Quality Retention", "Maintain vector paths, embedded typography, high-resolution imagery, and exact color profiles."],
+        ],
+        tip: "You can drag and drop additional PDFs directly into the Document Queue to append them instantly without restarting.",
+      };
+    case "jpgToPdf":
+      return {
+        dropCopy: "Select JPG images from your workstation to arrange them into one clean PDF document.",
+        dropTitle: "Drop your JPG images here",
+        cta: "Choose Files",
+        steps: [
+          ["01", "Image Sequence", "Drag image cards into reading order; each image becomes one page."],
+          ["02", "Page Layout", "Choose a page size and how images fit the sheet, with an optional margin."],
+          ["03", "One-Click Export", "All images are assembled locally into a single PDF document."],
+        ],
+        tip: "Auto page size matches each sheet exactly to the image dimensions.",
+      };
     case "splitPdf":
       default:
       return {
         dropCopy: "Select a PDF document from your workstation to configure segments, single-page splits, or customized range sequences.",
+        dropTitle: "Drop your PDF here",
+        cta: "Choose File",
         steps: [
           ["01", "Target Ranges", "Define discrete brackets such as 1-4, 5-8, or standalone single pages to generate isolated volumes."],
           ["02", "Visual Page Grid", "Inspect every page below, zoom thumbnails, and verify boundaries before you commit the split."],
@@ -1706,7 +1852,7 @@ function OperationStudio({
           </>
         ) : (
           <StudioDropCard
-            copy={copy.dropCopy}
+            copy={copy}
             dragging={dragging}
             icon={<Icon size={22} strokeWidth={1.7} />}
             onPickFiles={onPickFiles}
@@ -1754,7 +1900,7 @@ function StudioDropCard({
   icon,
   onPickFiles,
 }: {
-  copy: string;
+  copy: StudioCopy;
   dragging: boolean;
   icon: ReactNode;
   onPickFiles: () => void;
@@ -1766,11 +1912,11 @@ function StudioDropCard({
           {icon}
           <em>+</em>
         </span>
-        <h2>Drop your PDF here</h2>
-        <p>{copy}</p>
+        <h2>{copy.dropTitle}</h2>
+        <p>{copy.dropCopy}</p>
         <button className="split-drop-cta" onClick={onPickFiles} type="button">
           <FilePlus2 size={15} />
-          Choose File
+          {copy.cta}
           <kbd>&#8984;O</kbd>
         </button>
       </div>
@@ -1790,6 +1936,181 @@ function StudioInfoCards({ steps }: { steps: Array<[string, string, string]> }) 
           </div>
         </div>
       ))}
+    </section>
+  );
+}
+
+function MergeQueueCard({
+  files,
+  frames,
+  draggedId,
+  tool,
+  onAddFiles,
+  onDragEnd,
+  onDragStart,
+  onMove,
+  onRemove,
+}: {
+  files: string[];
+  frames: Record<string, { pages: { page: number; dataUrl: string }[]; pageCount: number; size: number | null }>;
+  draggedId: string | null;
+  tool: ToolId;
+  onAddFiles: () => void;
+  onDragEnd: () => void;
+  onDragStart: (path: string) => void;
+  onMove: (sourcePath: string, targetPath: string) => void;
+  onRemove: (path: string) => void;
+}) {
+  const isImages = tool === "jpgToPdf";
+
+  function startRowDrag(event: PointerEvent<HTMLElement>, path: string) {
+    if ((event.target as HTMLElement).closest("button")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onDragStart(path);
+  }
+
+  return (
+    <section className="studio-card">
+      <div className="studio-card-heading">
+        <h3>
+          <ListOrdered size={16} />
+          {isImages ? "Image Queue" : "Document Queue"}
+        </h3>
+        <span className="queue-hint">
+          <GripVertical size={13} />
+          Drag rows to reorder
+        </span>
+      </div>
+      <p className="queue-caption">
+        {files.length} {isImages ? "images" : "documents"} arranged in assembly order
+      </p>
+      <div className="split-queue-rows">
+        {files.map((path, index) => {
+          const frame = frames[path];
+          const metaParts = [
+            frame && frame.pageCount > 0
+              ? `${frame.pageCount} page${frame.pageCount === 1 ? "" : "s"}`
+              : null,
+            frame?.size ? formatBytes(frame.size) : null,
+          ].filter(Boolean);
+          return (
+            <div
+              className={`split-queue-row ${draggedId === path ? "dragging" : ""}`}
+              key={path}
+              onPointerCancel={onDragEnd}
+              onPointerDown={(event) => startRowDrag(event, path)}
+              onPointerEnter={(event) => {
+                event.stopPropagation();
+                if (draggedId) onMove(draggedId, path);
+              }}
+              onPointerUp={(event) => {
+                event.stopPropagation();
+                onDragEnd();
+              }}
+            >
+              <span className="split-queue-grip">
+                <GripVertical size={15} />
+              </span>
+              <span className="split-group-index">{index + 1}</span>
+              <div className="split-queue-meta">
+                <strong>{basename(path)}</strong>
+                <small>{metaParts.length > 0 ? metaParts.join(" • ") : "…"}</small>
+              </div>
+              <button
+                className="split-group-remove"
+                onClick={() => onRemove(path)}
+                title="Remove"
+                type="button"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <button className="split-group-add" onClick={onAddFiles} type="button">
+        <Plus size={15} />
+        Add {isImages ? "Image" : "Document"} to Queue
+      </button>
+    </section>
+  );
+}
+
+function PageFlowCard({
+  files,
+  frames,
+  tool,
+  visibleCount,
+  onExpand,
+  onZoomFile,
+}: {
+  files: string[];
+  frames: Record<string, { pages: { page: number; dataUrl: string }[]; pageCount: number; size: number | null }>;
+  tool: ToolId;
+  visibleCount: number;
+  onExpand: () => void;
+  onZoomFile: (path: string, page: number) => void;
+}) {
+  const entries: Array<{ path: string; page: number; dataUrl: string; docIndex: number }> = [];
+  files.forEach((path, docIndex) => {
+    for (const frame of frames[path]?.pages ?? []) {
+      entries.push({ path, page: frame.page, dataUrl: frame.dataUrl, docIndex });
+    }
+  });
+  const totalPages = files.reduce((sum, path) => sum + (frames[path]?.pageCount ?? 0), 0);
+  if (entries.length === 0) return null;
+
+  const shown = entries.slice(0, visibleCount);
+  const remaining = totalPages - shown.length;
+  const isImages = tool === "jpgToPdf";
+
+  return (
+    <section className="studio-card split-preview-card">
+      <div className="preview-heading">
+        <strong>
+          <BookOpen size={16} />
+          <span>{isImages ? "Unified Image Flow" : "Unified Page Flow"}</span>
+          <em className="flow-chip">{totalPages} Total Pages</em>
+        </strong>
+        <span className="flow-hint">
+          <Eye size={13} />
+          Click any page to preview high-res
+        </span>
+      </div>
+      <div className="preview-grid">
+        {shown.map((entry) => (
+          <figure
+            className="preview-thumb clickable"
+            key={`${entry.path}-${entry.page}`}
+            onClick={() => onZoomFile(entry.path, entry.page)}
+          >
+            <img alt={`Page ${entry.page}`} draggable={false} src={entry.dataUrl} />
+            <span
+              className={`thumb-doc-badge hue-${GROUP_HUES[entry.docIndex % GROUP_HUES.length]}`}
+            >
+              {isImages ? `Img ${entry.docIndex + 1}` : `Doc ${entry.docIndex + 1}`}
+            </span>
+            <figcaption>Pg {entry.page}</figcaption>
+          </figure>
+        ))}
+      </div>
+      {remaining > 0 ? (
+        <div className="flow-footer">
+          <span className="flow-dots">
+            {GROUP_HUES.slice(0, Math.min(3, files.length)).map((hue) => (
+              <i className={`hue-${hue}`} key={hue} />
+            ))}
+          </span>
+          <span>
+            … and {remaining} more page{remaining === 1 ? "" : "s"} following the{" "}
+            {isImages ? "image" : "document"} sequence
+          </span>
+          <button className="flow-expand" onClick={onExpand} type="button">
+            Expand grid view <ArrowRight size={13} />
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -2066,8 +2387,11 @@ function SplitRecentPanel({
 
 function StudioOutputModal({
   canPreview,
+  chips,
+  chipsLabel,
   job,
   packageZip,
+  readyTitle,
   rowLabels,
   showZip,
   summaryLine,
@@ -2077,8 +2401,11 @@ function StudioOutputModal({
   onSaveRow,
 }: {
   canPreview: boolean;
+  chips?: string[];
+  chipsLabel?: string;
   job: JobState;
   packageZip: boolean;
+  readyTitle?: string;
   rowLabels: string[];
   showZip: boolean;
   summaryLine?: string | null;
@@ -2140,7 +2467,8 @@ function StudioOutputModal({
           <div>
             <em>{toolById[job.tool].title} complete</em>
             <h2>
-              {count === 1 ? "1 File Ready for Export" : `${count} Files Ready for Export`}
+              {readyTitle ??
+                (count === 1 ? "1 File Ready for Export" : `${count} Files Ready for Export`)}
             </h2>
             <p>
               {summaryLine ??
@@ -2182,6 +2510,23 @@ function StudioOutputModal({
             </div>
           ))}
         </div>
+        {chips && chips.length > 0 ? (
+          <>
+            <div className="split-modal-list-heading">
+              <span>{chipsLabel ?? "Included files in order"}</span>
+              <span>
+                {chips.length} {chips.length === 1 ? "File" : "Files"} Consumed
+              </span>
+            </div>
+            <div className="split-modal-chips">
+              {chips.map((chip) => (
+                <span className="split-modal-chip" key={chip}>
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : null}
         <div className="split-modal-actions">
           <button className="split-modal-primary" onClick={onSaveAll} type="button">
             <Download size={15} />
@@ -2675,86 +3020,6 @@ function OrganizeBoard({
           </button>
         </div>
       ) : null}
-    </section>
-  );
-}
-
-function MergeBoard({
-  files,
-  thumbnails,
-  draggedId,
-  onDragEnd,
-  onDragStart,
-  onMove,
-  onRemove,
-  onZoomFile,
-}: {
-  files: string[];
-  thumbnails: Record<string, string>;
-  draggedId: string | null;
-  onDragEnd: () => void;
-  onDragStart: (path: string) => void;
-  onMove: (sourcePath: string, targetPath: string) => void;
-  onRemove: (path: string) => void;
-  onZoomFile: (path: string) => void;
-}) {
-  function startFileDrag(event: PointerEvent<HTMLElement>, path: string) {
-    if ((event.target as HTMLElement).closest("button")) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onDragStart(path);
-  }
-
-  function moveOverFile(event: PointerEvent<HTMLElement>, path: string) {
-    event.stopPropagation();
-    if (draggedId) onMove(draggedId, path);
-  }
-
-  function endFileDrag(event: PointerEvent<HTMLElement>) {
-    event.stopPropagation();
-    onDragEnd();
-  }
-
-  if (files.length === 0) return null;
-
-  return (
-    <section className="merge-board" onPointerLeave={onDragEnd} onPointerUp={onDragEnd}>
-      <div className="preview-heading">
-        <strong>Merge order</strong>
-        <span>Drag cards to reorder — files merge top to bottom</span>
-      </div>
-      <div className="merge-grid">
-        {files.map((path, index) => (
-          <article
-            className={`merge-card ${draggedId === path ? "dragging" : ""}`}
-            key={path}
-            onPointerCancel={endFileDrag}
-            onPointerDown={(event) => startFileDrag(event, path)}
-            onPointerEnter={(event) => moveOverFile(event, path)}
-            onPointerUp={endFileDrag}
-          >
-            <span className="order-badge">{index + 1}</span>
-            <div className="merge-thumb">
-              {thumbnails[path] ? (
-                <img alt={basename(path)} draggable={false} src={thumbnails[path]} />
-              ) : (
-                <Files size={22} />
-              )}
-            </div>
-            <div className="merge-card-footer">
-              <span>{basename(path)}</span>
-              <div className="merge-card-actions">
-                <button onClick={() => onZoomFile(path)} title="View larger" type="button">
-                  <Eye size={14} />
-                </button>
-                <button onClick={() => onRemove(path)} title="Remove" type="button">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
     </section>
   );
 }

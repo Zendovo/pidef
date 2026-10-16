@@ -42,6 +42,12 @@ fn get_pdf_preview(app: AppHandle, request: PdfPreviewRequest) -> Result<PdfPrev
 }
 
 #[tauri::command]
+fn get_image_thumbnail(path: PathBuf, width: Option<u32>) -> Result<String, String> {
+    pdf_tool_core::image_thumbnail_data_url(&path, width.unwrap_or(160))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn get_file_size(path: PathBuf) -> Result<u64, String> {
     fs::metadata(&path)
         .map(|metadata| metadata.len())
@@ -179,6 +185,7 @@ pub fn run() {
             get_operation_options,
             execute_job,
             get_pdf_preview,
+            get_image_thumbnail,
             get_file_size,
             save_output,
             save_outputs_zip,

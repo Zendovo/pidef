@@ -1090,3 +1090,20 @@ mod tests {
         assert_eq!(info.components, 3);
     }
 }
+
+/// Small JPEG preview of an image file as a data URL (for boards and flows).
+pub fn image_thumbnail_data_url(path: &Path, width: u32) -> Result<String, PdfToolError> {
+    use base64::{engine::general_purpose, Engine as _};
+    let target_width = width.clamp(48, 640);
+    let image = image::open(path).map_err(|error| PdfToolError::UnsupportedFile(error.to_string()))?;
+    let thumbnail = image.thumbnail(target_width, target_width.saturating_mul(4));
+    let mut bytes = Vec::new();
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 72);
+    encoder
+        .encode_image(&thumbnail)
+        .map_err(|error| PdfToolError::ConversionFailed(error.to_string()))?;
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        general_purpose::STANDARD.encode(bytes)
+    ))
+}

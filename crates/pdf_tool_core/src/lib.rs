@@ -19,8 +19,8 @@ pub use jobs::{
 #[cfg(feature = "render")]
 pub use operations::render_pdf_preview;
 pub use operations::{
-    build_jpg_pdf, build_jpg_pdf_from_bytes, compress_arguments, page_spec, protect_arguments,
-    run_job, run_job_with_dependency_roots,
+    build_jpg_pdf, build_jpg_pdf_from_bytes, compress_arguments, image_thumbnail_data_url,
+    page_spec, protect_arguments, run_job, run_job_with_dependency_roots,
 };
 pub use page_ranges::{parse_page_ranges, qpdf_range, PageSelection};
 pub use zip_outputs::zip_outputs;

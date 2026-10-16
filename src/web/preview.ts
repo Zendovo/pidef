@@ -33,3 +33,30 @@ export async function renderWebPdfPreview(request: {
     })),
   };
 }
+
+export async function renderWebImageThumbnail(request: {
+  path: string;
+  width?: number;
+}): Promise<string> {
+  const bytes = getFileBytes(request.path);
+  if (!bytes) {
+    throw new Error("File is no longer available in this session");
+  }
+  const width = Math.min(640, Math.max(48, request.width ?? 160));
+  const blob = new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
+  const bitmap = await createImageBitmap(blob);
+  const scale = width / Math.max(1, bitmap.width);
+  const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
+  const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error("Canvas 2D is not available");
+  }
+  context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.72);
+}

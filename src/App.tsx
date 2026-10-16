@@ -2,6 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import {
   ArrowLeftRight,
   ArrowRight,
+  BookOpen,
   CheckCircle2,
   CircleAlert,
   Clock3,
@@ -20,6 +21,7 @@ import {
   RotateCw,
   Settings,
   SlidersHorizontal,
+  Split,
   Trash2,
   X,
 } from "lucide-react";
@@ -1409,6 +1411,8 @@ function SplitStudio({
                 onShowMore={onShowMorePreview}
                 onZoomPage={onZoomPage}
                 preview={preview}
+                title="Document Preview"
+                titleIcon={<BookOpen size={16} />}
                 visibleCount={visibleCount}
               />
             </section>
@@ -1460,7 +1464,7 @@ function SplitDropCard({
     <section className={`studio-card split-drop-card ${dragging ? "dragging" : ""}`}>
       <div className="split-drop-body">
         <span className="split-drop-icon">
-          <ListOrdered size={22} strokeWidth={1.7} />
+          <Split size={22} strokeWidth={1.7} />
           <em>+</em>
         </span>
         <h2>Drop your PDF here</h2>
@@ -2245,6 +2249,8 @@ function PdfPreviewGrid({
   onShowMore,
   groupByPage,
   onZoomPage,
+  title = "Preview",
+  titleIcon,
 }: {
   preview: PdfPreview | null;
   isLoading: boolean;
@@ -2254,6 +2260,8 @@ function PdfPreviewGrid({
   onShowMore: () => void;
   groupByPage?: Map<number, number>;
   onZoomPage?: (pageNumber: number) => void;
+  title?: string;
+  titleIcon?: ReactNode;
 }) {
   if (isLoading) {
     return (
@@ -2284,7 +2292,10 @@ function PdfPreviewGrid({
   return (
     <section className="preview-panel">
       <div className="preview-heading">
-        <strong>Preview</strong>
+        <strong>
+          {titleIcon}
+          <span>{title}</span>
+        </strong>
         <span>
           {preview.pageCount === 1 ? "1 page" : `${preview.pageCount} pages`}
           {preview.pages.length < preview.pageCount ? `, showing first ${preview.pages.length}` : ""}

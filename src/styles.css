@@ -291,6 +291,8 @@ body[data-native-shell="macos"] .workspace {
 }
 
 .topbar {
+  position: relative;
+  z-index: 1;
   align-items: center;
   display: flex;
   justify-content: space-between;
@@ -3568,6 +3570,7 @@ textarea,
 }
 
 .split-studio {
+  align-content: start;
   display: grid;
   gap: 26px;
   grid-template-columns: minmax(0, 1fr) 336px;
@@ -3858,10 +3861,33 @@ textarea,
   color: #0c0a09;
 }
 
+.split-preview-card .preview-actions {
+  justify-content: flex-end;
+}
+
+.split-preview-card .preview-actions .save-button {
+  background: transparent;
+  border: 1px solid #d6d3d1;
+  color: #292524;
+}
+
+.split-preview-card .preview-actions .save-button:hover {
+  background: #0c0a09;
+  border-color: #0c0a09;
+  color: #fff8f2;
+}
+
 .split-preview-card .preview-heading strong {
+  align-items: center;
   color: #0c0a09;
+  display: inline-flex;
   font-size: 15px;
   font-weight: 650;
+  gap: 8px;
+}
+
+.split-preview-card .preview-heading strong svg {
+  color: #a8a29e;
 }
 
 .split-preview-card .preview-heading > span {
@@ -4494,6 +4520,17 @@ textarea,
 
   .split-preview-card .preview-heading strong {
     color: #f5f4f0;
+  }
+
+  .split-preview-card .preview-actions .save-button {
+    border-color: rgba(245, 244, 240, 0.16);
+    color: #e5e3dc;
+  }
+
+  .split-preview-card .preview-actions .save-button:hover {
+    background: #f5f4f0;
+    border-color: #f5f4f0;
+    color: #141210;
   }
 
   .split-preview-card .preview-heading > span {

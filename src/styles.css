@@ -4785,3 +4785,172 @@ textarea,
 :root[data-theme="light"] .split-modal-heading em {
   color: #16a34a;
 }
+
+/* Forced light completion: re-assert light values for every property the
+   dark media block sets, so a light theme on a dark system stays readable. */
+:root[data-theme="light"] .split-file-chip-icon {
+  background: #f5f1ea;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-file-chip-meta small {
+  color: #a8a29e;
+}
+
+:root[data-theme="light"] .split-chip-replace {
+  border-color: #d6d3d1;
+  color: #292524;
+}
+
+:root[data-theme="light"] .split-chip-replace:hover {
+  background: #0c0a09;
+  border-color: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-drop-icon {
+  background: #f2e9df;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-drop-icon em {
+  background: #ffffff;
+  border-color: #e7e5e4;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-drop-cta {
+  background: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-drop-cta:hover {
+  background: #292524;
+}
+
+:root[data-theme="light"] .split-drop-cta kbd {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme="light"] .split-setting-field span {
+  color: #292524;
+}
+
+:root[data-theme="light"] .split-group-row {
+  border-color: #e7e5e4;
+}
+
+:root[data-theme="light"] .split-run-pill {
+  background: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-run-pill:hover:not(:disabled) {
+  background: #292524;
+}
+
+:root[data-theme="light"] .split-run-pill kbd {
+  color: rgba(255, 248, 242, 0.72);
+}
+
+:root[data-theme="light"] .split-reset-button {
+  color: #a8a29e;
+}
+
+:root[data-theme="light"] .split-reset-button:hover {
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-recent-row {
+  border-color: #e7e5e4;
+}
+
+:root[data-theme="light"] .split-recent-icon {
+  background: #f5f1ea;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-recent-meta strong {
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-recent-select {
+  border-color: #d6d3d1;
+  color: #292524;
+}
+
+:root[data-theme="light"] .split-recent-select:hover {
+  background: #0c0a09;
+  border-color: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-preview-card .preview-actions .save-button {
+  background: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-preview-card .preview-actions .save-button:hover {
+  background: #292524;
+}
+
+:root[data-theme="light"] .split-modal-close {
+  border-color: #e7e5e4;
+  color: #777169;
+}
+
+:root[data-theme="light"] .split-modal-close:hover {
+  border-color: #0c0a09;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-modal-preview {
+  border-color: #d6d3d1;
+  color: #292524;
+}
+
+:root[data-theme="light"] .split-modal-preview:hover {
+  background: #0c0a09;
+  border-color: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-modal-download {
+  border-color: #e7e5e4;
+  color: #777169;
+}
+
+:root[data-theme="light"] .split-modal-download:hover {
+  border-color: #0c0a09;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-modal-primary {
+  background: #0c0a09;
+  color: #fff8f2;
+}
+
+:root[data-theme="light"] .split-modal-primary:hover {
+  background: #292524;
+}
+
+:root[data-theme="light"] .split-modal-done {
+  border-color: #d6d3d1;
+  color: #292524;
+}
+
+:root[data-theme="light"] .split-modal-done:hover {
+  border-color: #0c0a09;
+}
+
+:root[data-theme="light"] .home-drop-cta:hover {
+  background: #292524;
+}
+
+:root[data-theme="light"] .home-section-link {
+  color: #777169;
+}
+
+:root[data-theme="light"] .home-section-link:hover {
+  color: #0c0a09;
+}

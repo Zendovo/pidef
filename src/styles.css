@@ -5374,3 +5374,35 @@ textarea,
   background: #f2e9df;
   color: #6d5540;
 }
+
+/* Forced light completion (multi-file studio) */
+:root[data-theme="light"] .split-attribute-card strong {
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-attribute-card small {
+  color: #777169;
+}
+
+:root[data-theme="light"] .flow-chip {
+  background: #f2e9df;
+  color: #8a6f5a;
+}
+
+:root[data-theme="light"] .flow-expand {
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .flow-hint,
+:root[data-theme="light"] .queue-hint {
+  color: #a8a29e;
+}
+
+:root[data-theme="light"] .split-queue-grip {
+  color: #c9c3bd;
+}
+
+:root[data-theme="light"] .split-queue-meta small,
+:root[data-theme="light"] .queue-caption {
+  color: #a8a29e;
+}

@@ -17,16 +17,28 @@ import {
   Lightbulb,
   ListOrdered,
   Loader2,
+  Menu,
+  Moon,
   Plus,
   RefreshCw,
   RotateCw,
   Settings,
   SlidersHorizontal,
   Split,
+  Sun,
   Trash2,
   X,
 } from "lucide-react";
-import { type CSSProperties, PointerEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  PointerEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   canReopenRecentFiles,
   pickFiles as pickFilesFromPlatform,
@@ -129,6 +141,8 @@ export function App() {
   const [jobs, setJobs] = useState<JobState[]>([]);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [isNativeSidebarCollapsed, setIsNativeSidebarCollapsed] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const workspaceRef = useRef<HTMLElement | null>(null);
   const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -195,6 +209,27 @@ export function App() {
     media.addEventListener("change", applyAppearance);
     return () => media.removeEventListener("change", applyAppearance);
   }, [appearance]);
+
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isMobileNavOpen]);
+
+  useLayoutEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    workspace.scrollTop = 0;
+    workspace.scrollLeft = 0;
+    for (const region of workspace.querySelectorAll<HTMLElement>(
+      ".home-screen, .split-studio, .history-feed",
+    )) {
+      region.scrollTop = 0;
+    }
+  }, [activeView, selectedToolId]);
 
   useEffect(() => {
     const input = selectedFiles[0];
@@ -438,6 +473,7 @@ export function App() {
 
     setSelectedToolId(toolId);
     setActiveView(toolId);
+    setIsMobileNavOpen(false);
     setForm(nextForm);
     setPdfPreview(null);
     setOrganizeItems([]);
@@ -1165,19 +1201,59 @@ export function App() {
 
 
   return (
-    <main className={`app-shell ${isNativeSidebarCollapsed ? "native-sidebar-collapsed" : ""}`}>
+    <main
+      className={`app-shell ${isNativeSidebarCollapsed ? "native-sidebar-collapsed" : ""}${
+        isMobileNavOpen ? " mobile-nav-open" : ""
+      }`}
+    >
       <div className="window-drag-strip" data-tauri-drag-region />
-      <section className="sidebar">
+      <header className="mobile-bar">
+        <button
+          aria-expanded={isMobileNavOpen}
+          aria-label="Open navigation"
+          className="mobile-bar-button"
+          onClick={() => setIsMobileNavOpen(true)}
+          type="button"
+        >
+          <Menu size={20} />
+        </button>
+        <span className="mobile-bar-brand">Pidef</span>
+        <button
+          aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="mobile-bar-button"
+          onClick={() => setAppearance(resolvedTheme === "dark" ? "light" : "dark")}
+          type="button"
+        >
+          {resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+      </header>
+      <div
+        aria-hidden="true"
+        className={`sidebar-backdrop ${isMobileNavOpen ? "visible" : ""}`}
+        onClick={() => setIsMobileNavOpen(false)}
+      />
+      <section className={`sidebar ${isMobileNavOpen ? "open" : ""}`}>
         <div className="brand" data-tauri-drag-region>
           <div>
             <h1>Pidef</h1>
           </div>
+          <button
+            aria-label="Close navigation"
+            className="sidebar-close"
+            onClick={() => setIsMobileNavOpen(false)}
+            type="button"
+          >
+            <X size={17} />
+          </button>
         </div>
 
         <div className="tool-list">
           <button
             className={`tool-button ${isHomeView ? "selected" : ""}`}
-            onClick={() => setActiveView("home")}
+            onClick={() => {
+              setActiveView("home");
+              setIsMobileNavOpen(false);
+            }}
             type="button"
           >
             <span className="tool-icon">
@@ -1216,7 +1292,10 @@ export function App() {
         <div className="sidebar-footer">
           <button
             className={`tool-button history-button ${activeView === "history" ? "selected" : ""}`}
-            onClick={() => setActiveView("history")}
+            onClick={() => {
+              setActiveView("history");
+              setIsMobileNavOpen(false);
+            }}
             type="button"
           >
             <span className="tool-icon">
@@ -1229,7 +1308,10 @@ export function App() {
 
           <button
             className={`tool-button settings-button ${isSettingsView ? "selected" : ""}`}
-            onClick={() => setActiveView("settings")}
+            onClick={() => {
+              setActiveView("settings");
+              setIsMobileNavOpen(false);
+            }}
             type="button"
           >
             <span className="tool-icon">
@@ -1256,6 +1338,7 @@ export function App() {
       </section>
 
       <section
+        ref={workspaceRef}
         className={
           isHomeView
             ? "workspace workspace-home"
@@ -2496,7 +2579,7 @@ function StudioOutputModal({
               {canPreview ? (
                 <button className="split-modal-preview" onClick={() => onPreview(output)} type="button">
                   <Eye size={14} />
-                  Preview
+                  <span>Preview</span>
                 </button>
               ) : null}
               <button

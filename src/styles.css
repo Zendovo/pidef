@@ -5418,3 +5418,18 @@ textarea,
 :root[data-theme="light"] .queue-caption {
   color: #a8a29e;
 }
+
+:root[data-theme="light"] .split-group-add {
+  border-color: #d6d3d1;
+  color: #777169;
+}
+
+:root[data-theme="light"] .split-group-add:hover {
+  border-color: #0c0a09;
+  color: #0c0a09;
+}
+
+:root[data-theme="light"] .split-group-remove:hover {
+  background: rgba(12, 10, 9, 0.06);
+  color: #0c0a09;
+}

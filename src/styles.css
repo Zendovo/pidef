@@ -5570,16 +5570,17 @@ textarea,
   /* Off-canvas sidebar */
   .sidebar-backdrop {
     background: rgba(9, 9, 12, 0.46);
-    display: block;
+    display: none;
     inset: 0;
     opacity: 0;
     pointer-events: none;
-    position: fixed;
+    position: absolute;
     transition: opacity 200ms ease;
     z-index: 35;
   }
 
   .sidebar-backdrop.visible {
+    display: block;
     opacity: 1;
     pointer-events: auto;
   }

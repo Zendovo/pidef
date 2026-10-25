@@ -127,6 +127,33 @@ const STUDIO_TOOLS: ToolId[] = [
 ];
 const isStudioTool = (tool: ToolId) => STUDIO_TOOLS.includes(tool);
 
+const BROWSER_CHROME_COLORS = {
+  light: "#f5f1ea",
+  dark: "#0e0d0c",
+} as const;
+
+/**
+ * iOS Safari derives its top/bottom chrome tint from body's background color.
+ * It does not reliably re-sample after an SPA theme flip, so nudge the
+ * theme-color meta with a near-identical value for one frame to force it.
+ */
+function syncBrowserChrome(theme: "light" | "dark") {
+  const color = BROWSER_CHROME_COLORS[theme];
+  document.documentElement.style.backgroundColor = color;
+  document.body.style.backgroundColor = color;
+
+  const meta = document.getElementById("theme-color");
+  if (!meta) return;
+
+  meta.setAttribute("content", color);
+  requestAnimationFrame(() => {
+    meta.setAttribute("content", `${color}fe`);
+    requestAnimationFrame(() => {
+      meta.setAttribute("content", color);
+    });
+  });
+}
+
 export function App() {
   const [selectedToolId, setSelectedToolId] = useState<ToolId>("mergePdf");
   const [activeView, setActiveView] = useState<AppView>("home");
@@ -198,9 +225,7 @@ export function App() {
       document.documentElement.dataset.theme = resolved;
       document.documentElement.dataset.appearance = appearance;
       document.documentElement.style.colorScheme = resolved;
-      document
-        .getElementById("theme-color")
-        ?.setAttribute("content", resolved === "dark" ? "#0e0d0c" : "#f5f1ea");
+      syncBrowserChrome(resolved);
       localStorage.setItem("appearance", appearance);
       setResolvedTheme(resolved === "light" ? "light" : "dark");
     };

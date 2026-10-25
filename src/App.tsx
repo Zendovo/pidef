@@ -197,6 +197,10 @@ export function App() {
       const resolved = appearance === "system" ? (media.matches ? "dark" : "light") : appearance;
       document.documentElement.dataset.theme = resolved;
       document.documentElement.dataset.appearance = appearance;
+      document.documentElement.style.colorScheme = resolved;
+      document
+        .getElementById("theme-color")
+        ?.setAttribute("content", resolved === "dark" ? "#0e0d0c" : "#f5f1ea");
       localStorage.setItem("appearance", appearance);
       setResolvedTheme(resolved === "light" ? "light" : "dark");
     };

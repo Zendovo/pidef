@@ -58,9 +58,14 @@
 }
 
 body {
+  background: #f5f1ea;
   margin: 0;
   min-width: 900px;
   min-height: 620px;
+}
+
+:root[data-theme="dark"] body {
+  background: #0e0d0c;
 }
 
 button,
@@ -2237,9 +2242,15 @@ textarea,
   margin: 0;
 }
 
+:root[data-theme="dark"] {
+  background: #0e0d0c;
+  color-scheme: dark;
+}
+
 :root[data-theme="light"] {
   color: #27272a;
-  background: #fafafa;
+  background: #f5f1ea;
+  color-scheme: light;
 }
 
 :root[data-theme="light"] .app-shell {
@@ -5500,7 +5511,7 @@ textarea,
   /* Mobile app bar */
   .mobile-bar {
     align-items: center;
-    background: rgba(18, 16, 15, 0.9);
+    background: #0e0d0c;
     border-bottom: 1px solid rgba(245, 244, 240, 0.08);
     color: #e6e1df;
     display: flex;
@@ -5541,7 +5552,7 @@ textarea,
   }
 
   :root[data-theme="light"] .mobile-bar {
-    background: rgba(252, 249, 245, 0.92);
+    background: #f5f1ea;
     border-bottom-color: rgba(120, 110, 100, 0.14);
     color: #292524;
   }

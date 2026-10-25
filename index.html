@@ -3,7 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta id="theme-color" name="theme-color" content="#f5f1ea" />
+    <meta name="color-scheme" content="light dark" />
     <title>Pidef</title>
+    <script>
+      (() => {
+        let stored = null;
+        try {
+          stored = localStorage.getItem("appearance");
+        } catch {
+          // Ignore blocked storage access.
+        }
+        const dark =
+          stored === "dark" ||
+          (stored !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        const theme = dark ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        document
+          .querySelector('meta[name="theme-color"]')
+          ?.setAttribute("content", dark ? "#0e0d0c" : "#f5f1ea");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
